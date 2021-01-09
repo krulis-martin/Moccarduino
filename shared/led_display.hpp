@@ -5,6 +5,7 @@
 #include <constants.hpp>
 #include <funshield.h>
 
+#include <string>
 #include <deque>
 #include <stdexcept>
 
@@ -331,12 +332,13 @@ public:
 	T get(std::size_t idx) const
 	{
 		std::size_t len = sizeof(T) * 8;
+		T mask = (T)1 << (len - 1);
 		idx *= len; // word index to index of first bit
-		std::uint8_t res = 0;
+		T res = 0;
 		std::size_t endIdx = std::min(idx + len, mRegister.size());
 		while (idx < endIdx) {
-			res = res << 1;
-			res |= mRegister[idx] ? 1 : 0;
+			res = res >> 1;
+			res |= mRegister[idx] ? mask : 0;
 			++idx;
 		}
 		return res;
