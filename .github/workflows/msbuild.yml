@@ -31,3 +31,6 @@ jobs:
     - name: Unit tests
       run: ./UnitTests.exe
       working-directory: bin
+    - name: Simple LED blinking test
+      run: ./TestBlinkLedBasic.exe
+      working-directory: bin

@@ -1,4 +1,6 @@
-#include <simulation_funshield.hpp>
+/**
+ * Simple test applied on the standard LED blink example from Arduino IDE codebase.
+ */
 #include <simulation.hpp>
 #include <emulator.hpp>
 
@@ -8,7 +10,7 @@
 ArduinoEmulator& get_arduino_emulator_instance();
 
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     // initialize simulation
     ArduinoSimulationController arduino(get_arduino_emulator_instance());
@@ -18,6 +20,7 @@ int main(int argc, char *argv[])
         arduino.runSetup();
 
         // simulate 30s of run
+        std::cout << "Simulate 30s of code run..." << std::endl;
         logtime_t endTime = arduino.getCurrentTime() + 30000000; // 30s
         while (arduino.getCurrentTime() < endTime) {
             arduino.runSingleLoop();
@@ -26,8 +29,8 @@ int main(int argc, char *argv[])
         // analyze output pin history
         auto& events = arduino.getPinEventsRaw(LED_BUILTIN);
 
-        if (events.empty()) {
-            std::cout << "No LED changes recorded whatsoever." << std::endl;
+        if (events.size() < 29) {
+            std::cerr << "Too few LED changes. At least 29 expected, but only " << events.size() << " recorded." << std::endl;
             return 1;
         }
 
@@ -40,7 +43,7 @@ int main(int argc, char *argv[])
 
             auto dt = events[i].time - lastTime;
             if (dt < 990000 || dt > 1100000) {
-                std::cout << "Subsequent changes of LED state are not within acceptable tolerance. Expected 1000ms delay, but " << (dt / 1000) << "ms delay was recorded." << std::endl;
+                std::cerr << "Subsequent changes of LED state are not within acceptable tolerance. Expected 1000ms delay, but " << (dt / 1000) << "ms delay was recorded." << std::endl;
                 return 1;
             }
 
@@ -50,7 +53,7 @@ int main(int argc, char *argv[])
 
         auto dt = arduino.getCurrentTime() - lastTime;
         if (dt > 1100000) {
-            std::cout << "Last LED state change was too long ago. Expected 1000ms delay at most, but " << (dt / 1000) << "ms delay was recorded." << std::endl;
+            std::cerr << "Last LED state change was too long ago. Expected 1000ms delay at most, but " << (dt / 1000) << "ms delay was recorded." << std::endl;
             return 1;
         }
     }
@@ -59,5 +62,6 @@ int main(int argc, char *argv[])
         return 2;
     }
 
+    std::cout << "Simulation completed successfully." << std::endl;
     return 0;
 }

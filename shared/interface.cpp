@@ -1,6 +1,7 @@
 #include <interface.hpp>
 #include <emulator.hpp>
 
+#include <stdexcept>
 #include <random>
 #include <cctype>
 
@@ -8,6 +9,13 @@ ArduinoEmulator emulator;
 
 ArduinoEmulator& get_arduino_emulator_instance()
 {
+	// a safeguard that ensures this method is called only once (by our main).
+	static std::size_t invocationCount = 0;
+	if (invocationCount > 0) {
+		throw std::runtime_error("Arduino emulator has been accessed multiple times. Someone is hacking the framework!");
+	}
+	++invocationCount;
+
 	return emulator;
 }
 

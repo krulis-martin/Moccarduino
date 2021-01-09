@@ -71,6 +71,14 @@ public:
 	}
 
 	/**
+	 * Returns current simulation (logical) time.
+	 */
+	logtime_t getCurrentTime() const
+	{
+		return mEmulator.mCurrentTime;
+	}
+
+	/**
 	 * Enable given method in emulator. At the beginning, all methods are enabled.
 	 */
 	void enableMethod(const std::string& name)
@@ -107,7 +115,7 @@ public:
 	 */
 	int getPinValue(pin_t pin)
 	{
-		auto arduinoPin = mEmulator.getPin(pin);
+		auto& arduinoPin = mEmulator.getPin(pin);
 		return arduinoPin.mValue;
 	}
 
@@ -116,7 +124,7 @@ public:
 	 */
 	void setPinValue(pin_t pin, int value)
 	{
-		auto arduinoPin = mEmulator.getPin(pin);
+		auto& arduinoPin = mEmulator.getPin(pin);
 		arduinoPin.mValue = value;
 	}
 
@@ -126,7 +134,7 @@ public:
 	 */
 	void enqueuePinValueChange(pin_t pin, int value, logtime_t delay = 0)
 	{
-		auto arduinoPin = mEmulator.getPin(pin);
+		auto& arduinoPin = mEmulator.getPin(pin);
 		arduinoPin.addEvent(mEmulator.mCurrentTime + delay, value);
 	}
 
@@ -135,10 +143,15 @@ public:
 	 */
 	const std::deque<ArduinoPin::Event>& getPinEventsRaw(pin_t pin) const
 	{
-		auto arduinoPin = mEmulator.getPin(pin);
+		auto& arduinoPin = mEmulator.getPin(pin);
 		return arduinoPin.getEvents();
 	}
 
+	/**
+	 * Return pin events (possibly merged from multiple pins) and return them in our PinEvent structures.
+	 * @param events output parameter (a vector that will be filled)
+	 * @param pins a list of pins the events of which are collected
+	 */
 	void getPinEvents(std::vector<PinEvent> &events, std::initializer_list<pin_t> pins) const
 	{
 		events.clear();
@@ -166,7 +179,7 @@ public:
 	 */
 	void clearPinEvents(pin_t pin)
 	{
-		auto arduinoPin = mEmulator.getPin(pin);
+		auto& arduinoPin = mEmulator.getPin(pin);
 		arduinoPin.clearEvents();
 	}
 
