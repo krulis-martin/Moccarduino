@@ -3,7 +3,9 @@
 
 #include <map>
 #include <string>
+#include <functional>
 #include <sstream>
+#include <exception>
 
 /**
  * Specific exception that behaves like a stream, so it can cummulate error messages more easily.
@@ -36,6 +38,10 @@ public:
 };
 
 
+/*
+ * Assertion helpers
+ */
+
 inline void assert_true_(bool condition, const char* conditionStr, const std::string& comment, int line, const char* srcFile)
 {
 	if (!condition) {
@@ -53,11 +59,31 @@ inline void assert_eq_(bool condition, const char* exprStr, const char* correctS
 	}
 }
 
-/**
- * Macro wrapper for test asserts.
- */
+template<class E>
+inline void assert_exception_(std::function<void()> const& op, const char* exceptionTypeStr, const std::string& comment, int line, const char* srcFile)
+{
+	try {
+		try {
+			op();
+		}
+		catch (E&) {
+			// this is correct behavior
+			return;
+		}
+	}
+	catch (std::exception&) {
+		throw (TestException() << "Assertion failed (" << exceptionTypeStr << " was expected, but another exception was thrown): " << comment << "\n"
+			<< "at " << srcFile << "[" << line << "]");
+	}
+
+	throw (TestException() << "Assertion failed (" << exceptionTypeStr << " was expected, but no exception was thrown): " << comment << "\n"
+		<< "at " << srcFile << "[" << line << "]");
+
+}
+
 #define ASSERT_TRUE(condition, comment) assert_true_(condition, #condition, comment, __LINE__, __FILE__)
 #define ASSERT_EQ(expr, correct, comment) assert_eq_(expr == correct, #expr, #correct, expr, correct, comment, __LINE__, __FILE__)
+#define ASSERT_EXCEPTION(exClass, op, comment) assert_exception_<exClass>(op, #exClass, comment, __LINE__, __FILE__)
 
 
 /**

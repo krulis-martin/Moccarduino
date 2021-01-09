@@ -154,8 +154,8 @@ public:
 			throw ArduinoEmulatorException("Pin mode has to be set before the pin is actually used.");
 		}
 
-		if (mMode != INPUT) {
-			throw ArduinoEmulatorException("Unable to read data from an output pin.");
+		if (mMode != OUTPUT) {
+			throw ArduinoEmulatorException("Unable to write data to an input pin.");
 		}
 
 		if (!mEvents.empty() && mEvents.back().time > time) {
@@ -326,7 +326,7 @@ public:
 			throw ArduinoEmulatorException("The pinMode() function is disabled in the emulator.");
 		}
 
-		auto arduinoPin = getPin(pin);
+		auto& arduinoPin = getPin(pin);
 		arduinoPin.setMode(mode);
 		advanceCurrentTime(1);
 	}
@@ -341,7 +341,7 @@ public:
 			throw ArduinoEmulatorException("The digitalWrite() function is disabled in the emulator.");
 		}
 
-		auto arduinoPin = getPin(pin);
+		auto& arduinoPin = getPin(pin);
 		arduinoPin.write(val, mCurrentTime);
 		advanceCurrentTime(1);
 	}
@@ -356,7 +356,7 @@ public:
 			throw ArduinoEmulatorException("The digitalRead() function is disabled in the emulator.");
 		}
 
-		auto arduinoPin = getPin(pin);
+		auto& arduinoPin = getPin(pin);
 		auto val = arduinoPin.read();
 		advanceCurrentTime(1);
 		return val;
@@ -372,7 +372,7 @@ public:
 			throw ArduinoEmulatorException("The analogRead() function is disabled in the emulator.");
 		}
 
-		auto arduinoPin = getPin(pin);
+		auto& arduinoPin = getPin(pin);
 		auto val = arduinoPin.read();
 		advanceCurrentTime(100); // delay taken from documentation
 		return val * 1023;

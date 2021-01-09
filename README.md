@@ -1,3 +1,5 @@
+![Windows MSVC Build](https://github.com/krulis-martin/Moccarduino/workflows/Windows%20MSVC%20Build/badge.svg)
+
 # Moccarduino
 
 Mocking environment for testing Arduino code. The sole objective of this project is to provide testing platform that could be used in
