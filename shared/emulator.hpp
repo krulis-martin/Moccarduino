@@ -1,6 +1,7 @@
 #ifndef MOCCARDUINO_SHARED_EMULATOR_HPP
 #define MOCCARDUINO_SHARED_EMULATOR_HPP
 
+#include <time_series.hpp>
 #include <constants.hpp>
 
 #include <deque>
@@ -10,7 +11,6 @@
 #include <random>
 
 using pin_t = std::uint8_t;
-using logtime_t = std::uint64_t;
 
 
 class ArduinoSimulationController; // forward declaration, so we can befriend this class
@@ -46,17 +46,26 @@ public:
 	/**
 	 * Records one change of the value of the pin.
 	 */
-	struct Event {
+	struct PinState {
 	public:
-		logtime_t time;	///< time of the change
-		int value;			///< new value (either written or received as input)
+		pin_t pin;		///< pin identifier
+		int value;		///< new value (either written or received as input)
 
-		Event (logtime_t t, int v) : time(t), value(v) {}
+		PinState() : pin(~(pin_t)0), value(-1) {}
+		PinState(pin_t p, int v) : pin(p), value(v) {}
+
+		inline bool operator<(const PinState& ps)
+		{
+			return pin < ps.pin || (pin == ps.pin && value < ps.value);
+		}
 	};
+
+	using Event = TimeSeries<PinState>::Event;
 
 private:
 	static const int UNDEFINED = -1;
 
+	pin_t mPin;		///< pin identification
 	int mWiring;	///< how the pin is actually wired (INPUT/OUTPUT)
 	int mMode;		///< current operating mode (INPUT/OUTPUT)
 	int mValue;		///< current value of the pin (LOW/HIGH)
@@ -65,7 +74,7 @@ private:
 	 * Output pins record write events of the application in this queue.
 	 * Input pins use this as pre-recorded events the will be used to emulate changes in input value.
 	 */
-	std::deque<Event> mEvents;
+	TimeSeries<PinState> mEvents;
 
 	/*
 	 * Interface for the simulator.
@@ -78,10 +87,10 @@ private:
 		mValue = UNDEFINED;
 	}
 
-	 /**
-	  * Return const ref to events queue so it can be inspected.
-	  */
-	const std::deque<Event>& getEvents() const
+	/**
+	 * Return const ref to events queue so it can be inspected.
+	 */
+	const TimeSeries<PinState>& getEvents() const
 	{
 		return mEvents;
 	}
@@ -99,11 +108,11 @@ private:
 	 */
 	void addEvent(logtime_t time, int value)
 	{
-		mEvents.push_back(Event(time, value));
+		mEvents.addEvent(time, PinState(mPin, value));
 	}
 
 public:
-	ArduinoPin(int wiring = UNDEFINED) : mWiring(wiring), mMode(UNDEFINED), mValue(UNDEFINED) {}
+	ArduinoPin(pin_t pin, int wiring = UNDEFINED) : mPin(pin), mWiring(wiring), mMode(UNDEFINED), mValue(UNDEFINED) {}
 
 	/**
 	 * Change the mode of the pin. This can be done only once (typically in setup).
@@ -163,7 +172,7 @@ public:
 		}
 
 		mValue = value;
-		mEvents.push_back(Event(time, value));
+		mEvents.addEvent(time, PinState(mPin, value));
 	}
 
 	/**
@@ -173,10 +182,8 @@ public:
 	void updateTime(logtime_t newTime)
 	{
 		if (mMode == INPUT) {
-			while (!mEvents.empty() && mEvents.front().time <= newTime) {
-				mValue = mEvents.front().value;
-				mEvents.pop_front();
-			}
+			Event lastEvent(0, PinState(mPin, mValue));
+			mEvents.consumeEventsUntil(newTime + 1, lastEvent); // time+1 effectively changes "until" from "<" to "<="
 		}
 	}
 };

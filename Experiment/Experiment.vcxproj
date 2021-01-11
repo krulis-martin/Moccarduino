@@ -176,6 +176,7 @@
     <ClInclude Include="..\shared\led_display.hpp" />
     <ClInclude Include="..\shared\simulation.hpp" />
     <ClInclude Include="..\shared\simulation_funshield.hpp" />
+    <ClInclude Include="..\shared\time_series.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="tested_code.ino" />

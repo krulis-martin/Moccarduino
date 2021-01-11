@@ -141,37 +141,10 @@ public:
 	/**
 	 * Return const ref to events queue of particular pin so it can be inspected.
 	 */
-	const std::deque<ArduinoPin::Event>& getPinEventsRaw(pin_t pin) const
+	const TimeSeries<ArduinoPin::PinState>& getPinEvents(pin_t pin) const
 	{
 		auto& arduinoPin = mEmulator.getPin(pin);
 		return arduinoPin.getEvents();
-	}
-
-	/**
-	 * Return pin events (possibly merged from multiple pins) and return them in our PinEvent structures.
-	 * @param events output parameter (a vector that will be filled)
-	 * @param pins a list of pins the events of which are collected
-	 */
-	void getPinEvents(std::vector<PinEvent> &events, std::initializer_list<pin_t> pins) const
-	{
-		events.clear();
-
-		// aggregate all events from all pins and wrap them into our PinEvent struct
-		for (auto&& pin : pins) {
-			for (auto&& ev : getPinEventsRaw(pin)) {
-				events.emplace_back(ev.time, ev.value, pin);
-			}
-		}
-
-		// sort events by time (primary) and pin (secondary)
-		std::sort(events.begin(), events.end(), [](const PinEvent& a, const PinEvent& b) {
-			if (a.time == b.time) {
-				return a.time < b.time;
-			}
-			else {
-				return a.pin <= b.pin;
-			}
-		});
 	}
 
 	/**

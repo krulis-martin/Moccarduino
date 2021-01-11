@@ -55,5 +55,8 @@
     <ClInclude Include="..\shared\simulation_funshield.hpp">
       <Filter>shared</Filter>
     </ClInclude>
+    <ClInclude Include="..\shared\time_series.hpp">
+      <Filter>shared</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

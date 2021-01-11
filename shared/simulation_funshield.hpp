@@ -170,8 +170,12 @@ public:
 
 	void processDisplayControlPins()
 	{
-		std::vector<ArduinoSimulationController::PinEvent> events;
-		mArduino.getPinEvents(events, { latch_pin, clock_pin, data_pin });
+		TimeSeries<ArduinoPin::PinState> events;
+		events.merge({
+			mArduino.getPinEvents(latch_pin),
+			mArduino.getPinEvents(clock_pin),
+			mArduino.getPinEvents(data_pin),
+		});
 
 	}
 

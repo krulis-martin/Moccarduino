@@ -50,6 +50,9 @@
     <ClInclude Include="..\shared\led_display.hpp">
       <Filter>shared</Filter>
     </ClInclude>
+    <ClInclude Include="..\shared\time_series.hpp">
+      <Filter>shared</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="tested_code.ino">

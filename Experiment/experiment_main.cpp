@@ -24,17 +24,17 @@ int main(int argc, char *argv[])
         }
 
         // analyze output pin history
-        auto& events = arduino.getPinEventsRaw(LED_BUILTIN);
+        auto& events = arduino.getPinEvents(LED_BUILTIN);
 
         if (events.empty()) {
             std::cout << "No LED changes recorded whatsoever." << std::endl;
             return 1;
         }
 
-        auto lastState = events.front().value;
+        auto lastState = events.front().value.value;
         auto lastTime = events.front().time;
         for (std::size_t i = 1; i < events.size(); ++i) {
-            if (events[i].value == lastState) {
+            if (events[i].value.value == lastState) {
                 continue; // this is not an actual change of state
             }
 
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            lastState = events[i].value;
+            lastState = events[i].value.value;
             lastTime = events[i].time;
         }
 

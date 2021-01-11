@@ -163,6 +163,7 @@
     <ClInclude Include="..\shared\led_display.hpp" />
     <ClInclude Include="..\shared\simulation.hpp" />
     <ClInclude Include="..\shared\simulation_funshield.hpp" />
+    <ClInclude Include="..\shared\time_series.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
