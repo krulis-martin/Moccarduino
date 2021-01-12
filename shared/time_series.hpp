@@ -1,9 +1,9 @@
 #ifndef MOCCARDUINO_SHARED_TIME_SERIES_HPP
 #define MOCCARDUINO_SHARED_TIME_SERIES_HPP
 
+#include <vector>
 #include <deque>
 #include <algorithm>
-#include <initializer_list>
 #include <stdexcept>
 #include <cstdint>
 
@@ -31,11 +31,71 @@ public:
 		Event(TIME t, VALUE v) : time(t), value(v) {}
 
 		// make the sorting algorithm great again!
-		inline bool operator <(const Event& e)
+		inline bool operator<(const Event& e) const
 		{
 			return time < e.time || (time == e.time && value < e.value);
 		}
 
+		inline bool operator==(const Event& e) const
+		{
+			return time == e.time && value == e.value;
+		}
+	};
+
+	/**
+	 * Range of indices of time series events. Basically an interval [start, end).
+	 */
+	class Range {
+	private:
+		std::size_t mStart;	///< starting index (inclusive)
+		std::size_t mEnd;	///< terminal index (exclusive)
+
+	public:
+		Range(std::size_t start = 0, std::size_t end = ~(std::size_t)0)
+			: mStart(std::min(start, end)), mEnd(std::max(start,end))
+		{}
+
+		std::size_t start() const
+		{
+			return mStart;
+		}
+
+		std::size_t end() const
+		{
+			return mEnd;
+		}
+
+		std::size_t length() const
+		{
+			return mEnd - mStart;
+		}
+
+		bool empty() const
+		{
+			return length() == 0;
+		}
+
+		void set(std::size_t start, std::size_t end)
+		{
+			mStart = std::min(start, end);
+			mEnd = std::max(start, end);
+		}
+
+		// make the sorting algorithm great again!
+		inline bool operator<(const Range& r) const
+		{
+			return mStart < r.mStart || (mStart == r.mStart && mEnd < r.mEnd);
+		}
+
+		inline bool operator==(const Range& r) const
+		{
+			return mStart == r.mStart && mEnd == r.mEnd;
+		}
+
+		inline bool overlap(const Range& r) const
+		{
+			return mStart < r.mEnd && mEnd > r.mStart;
+		}
 	};
 
 private:
@@ -166,7 +226,7 @@ public:
 	 * Take given list of time series and merge all their events into this time series.
 	 * This time series is cleared before merge.
 	 */
-	void merge(std::initializer_list<TimeSeries<VALUE, TIME>> series)
+	void merge(const std::vector<TimeSeries<VALUE, TIME>>& series)
 	{
 		clear();
 		for (auto&& s : series) {
@@ -175,6 +235,149 @@ public:
 			}
 		}
 		std::sort(mEvents.begin(), mEvents.end());
+	}
+
+
+	/*
+	 * Analytical functions
+	 */
+
+	/**
+	 * Get the difference between first and last event in given range.
+	 */
+	TIME getRangeDuration(const Range& range) const
+	{
+		if (range.length() < 2) {
+			return 0.0;
+		}
+		else {
+			return mEvents[range.end() - 1] - mEvents[range.start()];
+		}
+	}
+
+	/**
+	 * Examine event time stamps in given range and return the mean delay between subsequent events.
+	 */
+	double getDeltasMean(const Range& range) const
+	{
+		if (range.length() < 2) {
+			return 0.0;
+		}
+
+		TIME deltas = 0;
+		TIME lastTime = mEvents[range.start()].time;
+
+		for (std::size_t i = range.start() + 1; i < range.end(); ++i) {
+			deltas += mEvents[i].time - lastTime;
+			lastTime = mEvents[i].time;
+		}
+
+		return (double)deltas / (double)(range.length() - 1);
+	}
+
+	/**
+	 * Examine event time stamps in given range and return the variance (std. dev ^2)
+	 * of delays between subsequent events.
+	 */
+	double getDeltasVariance(const Range& range) const
+	{
+		if (range.length() < 2) {
+			return 0.0;
+		}
+
+		TIME deltas = 0;
+		TIME squareDeltas = 0;
+		TIME lastTime = mEvents[range.start()].time;
+
+		for (std::size_t i = range.start() + 1; i < range.end(); ++i) {
+			auto dt = mEvents[i].time - lastTime;
+			deltas += dt;
+			squareDeltas += dt * dt;
+			lastTime = mEvents[i].time;
+		}
+
+		double count = (double)(range.length() - 1);
+		double mean = (double)deltas / count;
+		return ((double)squareDeltas / count) - (mean * mean);	// E(X^2) - (EX)^2;
+	}
+
+	/**
+	 * Tries to find the first occurence of a continuous sequence in the time series.
+	 * If no such sequence exists, tries to return the longest prefix.
+	 * @param sequence of event values to search for
+	 * @return range of indiced where the occurence was found (empty range if nothing was found)
+	 */
+	Range findSubsequence(const std::vector<VALUE>& sequence) const
+	{
+		if (sequence.empty()) {
+			throw std::runtime_error("Empty sequence given as needle for search.");
+		}
+
+		if (empty()) {
+			return Range(0, 0);
+		}
+
+		// simple N x K comparison (may be replaced with Rabin-Karp or Knuth-Morris-Pratt in the future)
+		Range bestFit(0, 0);
+		for (std::size_t start = 0; start < size() - bestFit.length(); ++start) {
+			std::size_t len = 0;
+			while (len < sequence.size() && sequence[len] == mEvents[start + len].value) {
+				++len;
+			}
+			if (len > bestFit.length()) {
+				bestFit.set(start, start + len);
+			}
+		}
+
+		return bestFit;
+	}
+
+	/**
+	 * Tries to find the longest repetition of given sequence as a continuous subsequence.
+	 * If no such sequence exists, tries to return the longest prefix.
+	 * @param sequence of event values to search for
+	 * @return range of indiced where the occurence was found (empty range if nothing was found)
+	 */
+	Range findRepetitiveSubsequence(const std::vector<VALUE>& sequence) const
+	{
+		if (sequence.empty()) {
+			throw std::runtime_error("Empty sequence given as needle for search.");
+		}
+
+		if (sequence.size() > size()) {
+			return Range(0, 0); // sequence is longer than the current time series (no possible match)
+		}
+
+		std::vector<bool> isStartingPoint(mEvents.size());	// true for each index where a the search sequence starts
+		std::vector<std::size_t> startingPoints;			// list of all indices (ordered) where a starting point is
+
+		// simple N x K comparison (may be replaced with Rabin-Karp or Knuth-Morris-Pratt in the future)
+		for (std::size_t start = 0; start <= size() - sequence.size(); ++start) {
+			std::size_t len = 0;
+			while (len < sequence.size() && sequence[len] == mEvents[start + len].value) {
+				++len;
+			}
+
+			bool entireSequenceMatched = (len == sequence.size());
+			isStartingPoint[start] = entireSequenceMatched;
+			if (entireSequenceMatched) {
+				startingPoints.push_back(start);
+			}
+		}
+
+		// assemble the longest repetitive sequence from collected starting points
+		Range bestFit(0, 0);
+		for (auto start : startingPoints) {
+			std::size_t len = 0;
+			while (start + len < size() && isStartingPoint[start + len]) {
+				len += sequence.size();
+			}
+			if (len > bestFit.length()) {
+				bestFit.set(start, start + len);
+			}
+		}
+
+		return bestFit;
 	}
 };
 

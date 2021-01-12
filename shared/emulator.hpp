@@ -54,9 +54,14 @@ public:
 		PinState() : pin(~(pin_t)0), value(-1) {}
 		PinState(pin_t p, int v) : pin(p), value(v) {}
 
-		inline bool operator<(const PinState& ps)
+		inline bool operator<(const PinState& ps) const
 		{
 			return pin < ps.pin || (pin == ps.pin && value < ps.value);
+		}
+
+		inline bool operator==(const PinState& ps) const
+		{
+			return pin == ps.pin && value == ps.value;
 		}
 	};
 
@@ -227,6 +232,11 @@ private:
 	bool mEnableTone;
 	bool mEnableNoTone;
 
+	// Timing parameters
+	logtime_t mPinReadDelay;
+	logtime_t mPinWriteDelay;
+	logtime_t mPinSetModeDelay;
+
 	void reset()
 	{
 		mCurrentTime = 0;
@@ -276,7 +286,7 @@ private:
 		if (it != mPins.end()) {
 			throw ArduinoEmulatorException("Given pin already exists.");
 		}
-		mPins.emplace(pin, wiring);
+		mPins.emplace(pin, ArduinoPin(pin, wiring));
 	}
 
 	/**
@@ -313,7 +323,10 @@ public:
 		mEnableShiftOut(true),
 		mEnableShiftIn(true),
 		mEnableTone(true),
-		mEnableNoTone(true)
+		mEnableNoTone(true),
+		mPinReadDelay(100),
+		mPinWriteDelay(100),
+		mPinSetModeDelay(100)
 	{}
 
 	/*
@@ -335,7 +348,7 @@ public:
 
 		auto& arduinoPin = getPin(pin);
 		arduinoPin.setMode(mode);
-		advanceCurrentTime(1);
+		advanceCurrentTime(mPinSetModeDelay);
 	}
 
 	/**
@@ -350,7 +363,7 @@ public:
 
 		auto& arduinoPin = getPin(pin);
 		arduinoPin.write(val, mCurrentTime);
-		advanceCurrentTime(1);
+		advanceCurrentTime(mPinWriteDelay);
 	}
 
 	/**
@@ -365,7 +378,7 @@ public:
 
 		auto& arduinoPin = getPin(pin);
 		auto val = arduinoPin.read();
-		advanceCurrentTime(1);
+		advanceCurrentTime(mPinReadDelay);
 		return val;
 	}
 
@@ -381,7 +394,7 @@ public:
 
 		auto& arduinoPin = getPin(pin);
 		auto val = arduinoPin.read();
-		advanceCurrentTime(100); // delay taken from documentation
+		advanceCurrentTime(mPinReadDelay); // delay taken from documentation
 		return val * 1023;
 	}
 

@@ -20,40 +20,33 @@ int main(int argc, char* argv[])
         arduino.runSetup();
 
         // simulate 30s of run
-        std::cout << "Simulate 30s of code run..." << std::endl;
-        logtime_t endTime = arduino.getCurrentTime() + 30000000; // 30s
+        constexpr logtime_t simulationTime = 100; // seconds
+        std::cout << "Simulate " << simulationTime << " seconds of code run..." << std::endl;
+        logtime_t endTime = arduino.getCurrentTime() + (simulationTime * 1000000); // us -> s
         while (arduino.getCurrentTime() < endTime) {
             arduino.runSingleLoop();
         }
 
         // analyze output pin history
         auto& events = arduino.getPinEvents(LED_BUILTIN);
+        auto range = events.findRepetitiveSubsequence({ ArduinoPin::PinState(LED_BUILTIN, LOW), ArduinoPin::PinState(LED_BUILTIN, HIGH) }); // LED goes on and off again
+        auto blinkCount = range.length() / 2;
+        auto mean = events.getDeltasMean(range);
+        auto variance = events.getDeltasVariance(range);
+        std::cout << "LED blinked " << blinkCount << " times with avg. period " << (mean / 500000.0) << "s and variance " << variance << std::endl;
 
-        if (events.size() < 29) {
-            std::cerr << "Too few LED changes. At least 29 expected, but only " << events.size() << " recorded." << std::endl;
+        if (blinkCount < 49 || blinkCount > 100) {
+            std::cerr << "Number of blinks expected was 49 or 50." << std::endl;
             return 1;
         }
 
-        auto lastState = events.front().value.value;
-        auto lastTime = events.front().time;
-        for (std::size_t i = 1; i < events.size(); ++i) {
-            if (events[i].value.value == lastState) {
-                continue; // this is not an actual change of state
-            }
-
-            auto dt = events[i].time - lastTime;
-            if (dt < 990000 || dt > 1100000) {
-                std::cerr << "Subsequent changes of LED state are not within acceptable tolerance. Expected 1000ms delay, but " << (dt / 1000) << "ms delay was recorded." << std::endl;
-                return 1;
-            }
-
-            lastState = events[i].value.value;
-            lastTime = events[i].time;
+        if (mean < 990000 || mean > 1100000) {
+            std::cerr << "Average period is off by more than 10% of expected value." << std::endl;
+            return 1;
         }
 
-        auto dt = arduino.getCurrentTime() - lastTime;
-        if (dt > 1100000) {
-            std::cerr << "Last LED state change was too long ago. Expected 1000ms delay at most, but " << (dt / 1000) << "ms delay was recorded." << std::endl;
+        if (variance > 1) {
+            std::cerr << "Variance is too high, the blinking is not regular enough." << std::endl;
             return 1;
         }
     }
