@@ -63,6 +63,15 @@ public:
 		{
 			return pin == ps.pin && value == ps.value;
 		}
+
+		/**
+		 * Helper function for testing. Generates a sequence of PinState structs from variadic arguments.
+		 * The user gives only actual state values, pin from template parameter is attached to every value.
+		 */
+		template<int PIN, typename...Args>
+		inline static std::vector<PinState> sequence(Args...args) {
+			return { PinState(PIN, args)... };
+		}
 	};
 
 	using Event = TimeSeries<PinState>::Event;

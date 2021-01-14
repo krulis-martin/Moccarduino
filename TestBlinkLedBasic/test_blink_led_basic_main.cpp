@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
 
         // analyze output pin history
         auto& events = arduino.getPinEvents(LED_BUILTIN);
-        auto range = events.findRepetitiveSubsequence({ ArduinoPin::PinState(LED_BUILTIN, LOW), ArduinoPin::PinState(LED_BUILTIN, HIGH) }); // LED goes on and off again
+        auto range = events.findRepetitiveSubsequence(ArduinoPin::PinState::sequence<LED_BUILTIN>(LOW, HIGH)); // LED goes on and off again
         auto blinkCount = range.length() / 2;
         auto mean = events.getDeltasMean(range);
         auto variance = events.getDeltasVariance(range);
