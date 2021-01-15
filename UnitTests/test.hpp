@@ -81,8 +81,8 @@ inline void assert_exception_(std::function<void()> const& op, const char* excep
 
 }
 
-#define ASSERT_TRUE(condition, comment) assert_true_(condition, #condition, comment, __LINE__, __FILE__)
-#define ASSERT_EQ(expr, correct, comment) assert_eq_(expr == correct, #expr, #correct, expr, correct, comment, __LINE__, __FILE__)
+#define ASSERT_TRUE(condition, comment) assert_true_((condition), #condition, comment, __LINE__, __FILE__)
+#define ASSERT_EQ(expr, correct, comment) assert_eq_((expr) == (correct), #expr, #correct, (expr), (correct), comment, __LINE__, __FILE__)
 #define ASSERT_EXCEPTION(exClass, op, comment) assert_exception_<exClass>(op, #exClass, comment, __LINE__, __FILE__)
 
 

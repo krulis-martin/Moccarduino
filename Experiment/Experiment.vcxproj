@@ -172,6 +172,7 @@
     <ClInclude Include="..\shared\constants.hpp" />
     <ClInclude Include="..\shared\emulator.hpp" />
     <ClInclude Include="..\shared\funshield.h" />
+    <ClInclude Include="..\shared\helpers.hpp" />
     <ClInclude Include="..\shared\interface.hpp" />
     <ClInclude Include="..\shared\led_display.hpp" />
     <ClInclude Include="..\shared\simulation.hpp" />

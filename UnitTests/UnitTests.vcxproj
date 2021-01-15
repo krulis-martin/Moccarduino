@@ -148,6 +148,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="tests\helpers.cpp" />
     <ClCompile Include="tests\led_display.cpp" />
     <ClCompile Include="tests\simulation.cpp" />
     <ClCompile Include="unit_tests_main.cpp" />
