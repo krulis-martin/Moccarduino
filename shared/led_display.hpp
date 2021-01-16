@@ -2,6 +2,7 @@
 #define MOCCARDUINO_SHARED_LED_DISPLAY_HPP
 
 #include <emulator.hpp>
+#include <helpers.hpp>
 #include <constants.hpp>
 #include <funshield.h>
 
@@ -10,7 +11,8 @@
 #include <stdexcept>
 
 constexpr std::uint8_t LED_7SEG_EMPTY_SPACE = 0b11111111;
-constexpr std::uint8_t LED_7SEG_DECIMAL_DOT = 0b10000000;
+constexpr std::uint8_t LED_7SEG_DASH = 0b10111111;
+constexpr std::uint8_t LED_7SEG_DECIMAL_DOT = 0b01111111;
 
 constexpr std::uint8_t LED_7SEG_DIGITS_MAP[]{
   0b11000000,	// 0
@@ -56,6 +58,204 @@ constexpr std::uint8_t LED_7SEG_LETTERS_MAP[]{
 
 
 /**
+ * Wrapper class for Leds state (bit array) that interprets digits and symbols on the display.
+ */
+template<int DIGITS>
+class Led7SegInterpreter
+{
+public:
+	using state_t = BitArray<DIGITS * 8>;
+	static const int INVALID_NUMBER = -1;
+	static const char INVALID_CHAR = 0x7f;
+
+private:
+	state_t mState;
+
+public:
+	Led7SegInterpreter(const state_t &state) : mState(state) {}
+
+	/**
+	 * Return raw LED data of given digit (7bits per segment + 1bit decimal dot).
+	 * @param idx index of the digit (0..DIGITS-1, from left to right)
+	 */
+	std::uint8_t getDigitRaw(std::size_t idx, bool maskDecimalDot = false) const
+	{
+		auto res = mState.get<std::uint8_t>(idx * 8);
+		if (maskDecimalDot) {
+			res = res | ~LED_7SEG_DECIMAL_DOT; // mask out
+		}
+		return res;
+	}
+
+	/**
+	 * Check whether there is a decimal dot lit at given digit position.
+	 * @param idx index of the digit (0..DIGITS-1, from left to right)
+	 */
+	bool hasDecimalDot(std::size_t idx) const
+	{
+		return (getDigitRaw(idx) & ~LED_7SEG_DECIMAL_DOT) == 0; // 0 ~ LED is active
+	}
+
+	/**
+	 * Returns true if there is more than one decimal digit active on the display.
+	 */
+	bool decimalDotAmbiguous() const
+	{
+		std::size_t count = 0;
+		for (std::size_t digit = 0; digit < DIGITS; ++digit) {
+			if (hasDecimalDot(digit)) {
+				++count;
+			}
+		}
+		return count > 1;
+	}
+
+	/**
+	 * Return index of the leftmost decimal digit that is active.
+	 * @return index from 0 (leftmost) to DIGIT-1 (rightmost) range;
+	           DIGIT-1 is returned when no dot is active (implicit decimal position)
+	 */
+	std::size_t decimalDotPosition() const
+	{
+		for (std::size_t digit = 0; digit < DIGITS; ++digit) {
+			if (hasDecimalDot(digit)) {
+				return digit;
+			}
+		}
+		return DIGITS - 1; // last position is implicit decimal position even if no dot is present
+	}
+
+	/**
+	 * Detect a nunmeric pattern at given position of 7-seg display.
+	 * @param idx index of the digit (0..DIGITS-1, from left to right)
+	 * @param detectSpaceAsZero if true, empty display is reported as zero
+	 * @return int detected digit (0-9) or INVALID_NUMBER if the digit was not recognized
+	 */
+	int getDigit(std::size_t idx, bool detectSpaceAsZero = false) const
+	{
+		char ch = getCharacter(idx, true); // true = prefer digits over letters
+		if (detectSpaceAsZero && ch == ' ') {
+			return 0; // special case, space is reported as 0
+		}
+
+		if (ch >= '0' && ch <= '9') {
+			return ch - '0';
+		}
+
+		return INVALID_NUMBER;
+	}
+
+	/**
+	 * Detect an alpha-numeric pattern at given position of 7-seg display and return the corresponding character (letter, digit, space).
+	 * All letters are reported lowercased, empty character is space.
+	 * @param idx index of the digit (0..DIGITS-1, from left to right)
+	 * @return char detected character or INVALID_CHAR constant if the state was not recognized
+	 */
+	char getCharacter(std::size_t idx, bool preferDigitsOverLetters = false) const
+	{
+		// internal cached reverse lookup table built from constants of glyphs
+		static std::map<std::uint8_t, char> lookupDigits;
+		static std::map<std::uint8_t, char> lookupOthers;
+		if (lookupDigits.empty()) {
+			for (int i = 0; i < 10; ++i) {
+				lookupDigits[LED_7SEG_DIGITS_MAP[i]] = '0' + i;
+			}
+		}
+		if (lookupOthers.empty()) {
+			for (int i = 0; i < 26; ++i) {
+				lookupOthers[LED_7SEG_LETTERS_MAP[i]] = 'a' + i;
+			}
+			lookupOthers[LED_7SEG_EMPTY_SPACE] = ' ';
+			lookupOthers[LED_7SEG_DASH] = '-';
+		}
+
+		auto glyph = getDigitRaw(idx, true); // true = mask out the decimal dot (not interesting here)
+
+		auto itDigit = lookupDigits.find(glyph);
+		auto itOther = lookupOthers.find(glyph);
+		
+		if (itDigit != lookupDigits.end() && itOther != lookupOthers.end()) {
+			// ambiguous situation, glyph matches both number and not-number
+			return preferDigitsOverLetters ? itDigit->second : itOther->second;
+		}
+
+		if (itDigit != lookupDigits.end()) {
+			return itDigit->second;
+		}
+
+		if (itOther != lookupOthers.end()) {
+			return itOther->second;
+		}
+
+		return INVALID_CHAR;
+	}
+
+	/**
+	 * Decode a number being shown on the whole display. The decimal dots are ignored, but negative numbers are recognized.
+	 * @return the number being displayed or INVALID_NUMBER if it cannot be properly decoded
+	 */
+	int getNumber() const
+	{
+		bool negative = false;
+		int res = 0;				// result accumulator
+
+		// find index of the first nonempty glyph
+		std::size_t idx = 0;
+		while (idx < DIGITS && getDigitRaw(idx, true) == LED_7SEG_EMPTY_SPACE) {
+			++idx;
+		}
+
+		// detect possible '-' sign and move on
+		if (idx < DIGITS && getDigitRaw(idx, true) == LED_7SEG_DASH) {
+			negative = true;
+			++idx;
+		}
+
+		if (idx >= DIGITS) {
+			return INVALID_NUMBER; // no digits available
+		}
+
+		// process remaining digits
+		while (idx < DIGITS) {
+			int digit = getDigit(idx);
+			if (digit == INVALID_NUMBER) {
+				return INVALID_NUMBER; // current glyph is not numerical digit
+			}
+			res = (res * 10) + digit;
+			++idx;
+		}
+
+		return negative ? -res : res;
+	}
+
+	/**
+	 * Get text content of the display and return it as a string.
+	 * @param invalidCharsReplacement if not zero (char) then invalid characters are replaced with this char,
+	 *                                otherwise any invalid char causes return of an empty string
+	 * @return sequence of chars as std string, empty string on failure
+	 */
+	std::string getText(char invalidCharsReplacement = '\0') const
+	{
+		std::string res;
+		for (std::size_t i = 0; i < DIGITS; ++i) {
+			char ch = getCharacter(i);
+			if (ch == INVALID_CHAR) {
+				if (invalidCharsReplacement != '\0') {
+					ch = invalidCharsReplacement; // we can patch it
+				}
+				else {
+					return ""; // we cannot patch it -> report failure
+				}
+			}
+			res.append({ ch });
+		}
+		return res;
+	}
+};
+
+
+/**
+ * DEPRECATED - TODO remove this (integrate generic demultiplexing in time series) 
  * Represents state of one digit of 7-seg LED display.
  * Also provides means for state demultiplexing and pattern detection.
  */
@@ -94,51 +294,6 @@ private:
 		}
 	}
 
-	/**
-	 * Detect a pattern on LED display and return corresponding digit.
-	 * @param detectSpaceAsZero if true, empty display is reported as zero.
-	 * @return int detected digit (0-9) or -1 if the digit was not recognized
-	 */
-	static int detectDigit(state_t state, bool detectSpaceAsZero = false)
-	{
-		static std::map<state_t, int> lookupTable;
-		if (lookupTable.empty()) {
-			for (int i = 0; i < 10; ++i) {
-				lookupTable[LED_7SEG_DIGITS_MAP[i]] = i;
-			}
-		}
-
-		state = state | LED_7SEG_DECIMAL_DOT; // mask out the decimal dot
-		if (detectSpaceAsZero && state == LED_7SEG_EMPTY_SPACE) {
-			return 0; // special case, space is reported as 0
-		}
-
-		auto it = lookupTable.find(state);
-		return it == lookupTable.end() ? -1 : it->second;
-	}
-
-	/**
-	 * Detect a pattern on LED display and return the corresponding character (letter, digit, space).
-	 * All letters are reported lowercased, empty character is space.
-	 * @return char detected character or zero char if the state was not recognized
-	 */
-	static char detectCharacter(state_t state)
-	{
-		static std::map<state_t, char> lookupTable;
-		if (lookupTable.empty()) {
-			for (int i = 0; i < 10; ++i) {
-				lookupTable[LED_7SEG_DIGITS_MAP[i]] = '0' + i;
-			}
-			for (int i = 0; i < 26; ++i) {
-				lookupTable[LED_7SEG_LETTERS_MAP[i]] = 'a' + i;
-			}
-			lookupTable[LED_7SEG_EMPTY_SPACE] = ' ';
-		}
-
-		state = state | LED_7SEG_DECIMAL_DOT; // mask out the decimal dot
-		auto it = lookupTable.find(state);
-		return it == lookupTable.end() ? '\0' : it->second;
-	}
 
 public:
 	LedDisplayDigit() : mLastTime(0), mLastState(0xff), mDemultiplexedState(0xff) {}
@@ -224,125 +379,6 @@ public:
 		mLastTime = currentTime;
 		return mDemultiplexedState;
 	}
-
-	/**
-	 * Detect a pattern in the last (current) state and return corresponding digit.
-	 * @param detectSpaceAsZero if true, empty display is reported as zero.
-	 * @return int detected digit (0-9) or -1 if the digit was not recognized
-	 */
-	int detectLastStateDigit(bool detectSpaceAsZero = false) const
-	{
-		return detectDigit(mLastState, detectSpaceAsZero);
-	}
-
-	/**
-	 * Detect a pattern in the last (current) state and return the corresponding character (letter, digit, space).
-	 * All letters are reported lowercased, empty character is space.
-	 * @return char detected character or zero char if the state was not recognized
-	 */
-	char detectLastStateCharacter() const
-	{
-		return detectCharacter(mLastState);
-	}
-
-	/**
-	 * Detect a pattern in the demultiplexed state and return corresponding digit.
-	 * @param detectSpaceAsZero if true, empty display is reported as zero.
-	 * @return int detected digit (0-9) or -1 if the digit was not recognized
-	 */
-	int detectDemultiplexedDigit(bool detectSpaceAsZero = false) const
-	{
-		return detectDigit(mDemultiplexedState, detectSpaceAsZero);
-	}
-
-	/**
-	 * Detect a pattern in the demultiplexed state and return the corresponding character (letter, digit, space).
-	 * All letters are reported lowercased, empty character is space.
-	 * @return char detected character or zero char if the state was not recognized
-	 */
-	char detectDemultiplexedCharacter() const
-	{
-		return detectCharacter(mDemultiplexedState);
-	}
-
-	/**
-	 * State of the decimal dot in the last digit state.
-	 */
-	bool lastStateHasDecimalDot() const
-	{
-		return (mLastState & LED_7SEG_DECIMAL_DOT) == 0; // 0 = LED is lit
-	}
-
-	/**
-	 * State of the decimal dot in the demultiplexed state.
-	 */
-	bool demultiplexedHasDecimalDot() const
-	{
-		return (mDemultiplexedState & LED_7SEG_DECIMAL_DOT) == 0; // 0 = LED is lit
-	}
-};
-
-
-/**
- * Helper class that simulates a shift register of fixed size.
- */
-class ShiftRegister
-{
-private:
-	std::deque<bool> mRegister;
-
-public:
-	ShiftRegister(std::size_t size) : mRegister(size) {}
-
-	/**
-	 * Push another bit and shif the register.
-	 * @return bit that was pushed out (carry)
-	 */
-	bool push(bool bit)
-	{
-		mRegister.push_front(bit);
-		bool res = mRegister.back();
-		mRegister.pop_back();
-		return res;
-	}
-
-	/**
-	 * Size of the register (number of bits)
-	 */
-	std::size_t size() const
-	{
-		return mRegister.size();
-	}
-
-	/**
-	 * Regular accessor for arbirary bit. Bit 0 is the last one pushed in.
-	 */
-	bool operator[](std::size_t idx) const
-	{
-		return mRegister[idx];
-	}
-
-	/**
-	 * Retrieve a sequence of bits as unsigned integral type.
-	 * Size of the result type determines also alignment of the index.
-	 * @param idx index in multiples of T
-	 * @return value as T (filled with consecutive bits at index location)
-	 */
-	template<typename T>
-	T get(std::size_t idx) const
-	{
-		std::size_t len = sizeof(T) * 8;
-		T mask = (T)1 << (len - 1);
-		idx *= len; // word index to index of first bit
-		T res = 0;
-		std::size_t endIdx = std::min(idx + len, mRegister.size());
-		while (idx < endIdx) {
-			res = res >> 1;
-			res |= mRegister[idx] ? mask : 0;
-			++idx;
-		}
-		return res;
-	}
 };
 
 
@@ -354,6 +390,7 @@ class SerialLedDisplay
 private:
 	/**
 	 * Display digits (0 is the leftmost digit)
+	 * TODO replace this with time series that keep the whole state
 	 */
 	std::vector<LedDisplayDigit> mDigits;
 
@@ -471,58 +508,6 @@ public:
 		for (auto&& digit : mDigits) {
 			digit.demultiplexing(currentTime, threshold, maxTimeSlice);
 		}
-	}
-
-	/**
-	 * Decode a number being shown on the display (after last demultiplexing).
-	 * @param result output argument where the actual number will be stored
-	 * @param divisor output argument that stores position of decimal dot in powers of 10
-	 *                (result / divisor is the actual value being displayed)
-	 * @return true if a valid number is being presented
-	 */
-	bool getNumber(int &result, int &divisor)
-	{
-		int res = 0;				// result accumulator
-		int div = 1;				// if no decimal dot is present, divisor is 1 by default
-		int divCandidate = 1000;	// candidate divisor value (divided by 10 in every iteration)
-
-		// find index of the first nonempty glyph
-		std::size_t idx = 0;
-		while (idx < mDigits.size() && mDigits[idx].getDemultiplexedState() == LED_7SEG_EMPTY_SPACE) {
-			++idx;
-			divCandidate /= 10;
-		}
-		if (idx >= mDigits.size()) {
-			return false; // no digits available
-		}
-
-		// process remaining digits
-		while (idx < mDigits.size()) {
-			// update res accumulator
-			res *= 10;
-			int digit = mDigits[idx].detectDemultiplexedDigit();
-			if (digit < 0) {
-				return false; // current glyph is not numerical digit
-			}
-			res += digit;
-
-			// check for decimal dots
-			if (mDigits[idx].demultiplexedHasDecimalDot()) {
-				if (divCandidate == 0) {
-					return false; // second decimal dot was detected
-				}
-				div = divCandidate;
-				divCandidate = 0;
-			}
-
-			++idx;
-			divCandidate /= 10;
-		}
-
-		// success (let's write the results)
-		result = res;
-		divisor = div;
-		return true;
 	}
 };
 
