@@ -19,6 +19,9 @@ int main(int argc, char* argv[])
     try {
         arduino.runSetup();
 
+        TimeSeries<ArduinoPinState> events;
+        arduino.attachPinEventsConsumer(LED_BUILTIN, events);
+
         // simulate 30s of run
         constexpr logtime_t simulationTime = 100; // seconds
         std::cout << "Simulate " << simulationTime << " seconds of code run..." << std::endl;
@@ -28,8 +31,7 @@ int main(int argc, char* argv[])
         }
 
         // analyze output pin history
-        auto& events = arduino.getPinEvents(LED_BUILTIN);
-        auto range = events.findRepetitiveSubsequence(ArduinoPin::PinState::sequence<LED_BUILTIN>(LOW, HIGH)); // LED goes on and off again
+        auto range = events.findRepetitiveSubsequence(ArduinoPinState::sequence<LED_BUILTIN>(LOW, HIGH)); // LED goes on and off again
         auto blinkCount = range.length() / 2;
         auto mean = events.getDeltasMean(range);
         auto variance = events.getDeltasVariance(range);

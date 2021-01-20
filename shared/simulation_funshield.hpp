@@ -168,17 +168,6 @@ public:
 		return res;
 	}
 
-	void processDisplayControlPins()
-	{
-		TimeSeries<ArduinoPin::PinState> events;
-		events.merge({
-			mArduino.getPinEvents(latch_pin),
-			mArduino.getPinEvents(clock_pin),
-			mArduino.getPinEvents(data_pin),
-		});
-
-	}
-
 	/**
 	 *
 	 */

@@ -2,12 +2,191 @@
 #define MOCCARDUINO_SHARED_TIME_SERIES_HPP
 
 #include <vector>
-#include <deque>
 #include <algorithm>
+#include <memory>
 #include <stdexcept>
+#include <limits>
 #include <cstdint>
 
 using logtime_t = std::uint64_t;
+
+
+/**
+ * Base class for all event consumers. Event consumer is an interface that fills events
+ * into time series (in the simplest case) or handles event transformtions (e.g., in demultiplexing).
+ * The consumers also implement chaining, so after processing, the event may be passed to another consumer.
+ * Thanks to this chaining, some consumers may act as transformers or even sole producers.
+ */
+template<typename VALUE, typename TIME = logtime_t>
+class EventConsumer
+{
+private:
+	/**
+	 * Reference to the next consumer in the chain. We are using shared pointers,
+	 * since some consumers may merely exist only in the chain (and need to be deleted with the chain)
+	 * whilst others may be shared (e.g., read by testing scenario).
+	 */
+	EventConsumer<VALUE, TIME> *mNextConsumer;
+
+protected:
+	/**
+	 * Timestamp of last event (time notification) registered by this consumer.
+	 */
+	TIME mLastTime;
+
+	/**
+	 * Pass the new event to the next consumer in the chain.
+	 */
+	void nextAddEvent(TIME time, VALUE value)
+	{
+		if (mNextConsumer != nullptr) {
+			mNextConsumer->addEvent(time, value);
+		}
+	}
+
+	/**
+	 * Notify the next consumer that tempus fugit!
+	 */
+	void nextAdvanceTime(TIME time)
+	{
+		if (mNextConsumer != nullptr) {
+			mNextConsumer->advanceTime(time);
+		}
+	}
+
+	/**
+	 * Pass the clear notification to the next consumer in the chain.
+	 */
+	void nextClear()
+	{
+		if (mNextConsumer != nullptr) {
+			mNextConsumer->clear();
+		}
+	}
+
+	virtual void doAddEvent(TIME time, VALUE value)
+	{
+		// base class have no implementation, just a transparent throughput
+		nextAddEvent(time, value);
+	}
+
+	virtual void doAdvanceTime(TIME time)
+	{
+		// base class have no implementation, just a transparent throughput
+		nextAdvanceTime(time);
+	}
+
+	virtual void doClear()
+	{
+		// base class have no implementation, just a transparent throughput
+		nextClear();
+	}
+
+public:
+	EventConsumer() : mNextConsumer(nullptr), mLastTime(0) {}
+	virtual ~EventConsumer() = default;  // just to enforce virtual destructor
+
+	/**
+	 * Get the next event consumer in the chain.
+	 */
+	EventConsumer<VALUE, TIME>* nextConsumer()
+	{
+		return mNextConsumer;
+	}
+
+	/**
+	 * Get the next event consumer in the chain.
+	 */
+	const EventConsumer<VALUE, TIME>* nextConsumer() const
+	{
+		return mNextConsumer;
+	}
+
+	/**
+	 * Get the last consumer in the chain. If this is the last one, returns *this*.
+	 */
+	EventConsumer<VALUE, TIME>* lastConsumer()
+	{
+		auto last = this;
+		while (last->nextConsumer() != nullptr) {
+			last = last->nextConsumer();
+		}
+		return last;
+	}
+
+	/**
+	 * Get the last consumer in the chain. If this is the last one, returns *this*.
+	 */
+	const EventConsumer<VALUE, TIME>* lastConsumer() const
+	{
+		auto last = this;
+		while (last->nextConsumer() != nullptr) {
+			last = last->nextConsumer();
+		}
+		return last;
+	}
+
+	/**
+	 * Attach next event consumer right after this one.
+	 */
+	void attachNextConsumer(EventConsumer<VALUE, TIME> &consumer)
+	{
+		if (mNextConsumer != nullptr) {
+			throw std::runtime_error("Next consumer is already attached.");
+		}
+		mNextConsumer = &consumer;
+	}
+
+	/**
+	 * Detach the next event consumer.
+	 */
+	void detachNextConsumer()
+	{
+		if (mNextConsumer == nullptr) {
+			throw std::runtime_error("No next consumer is attached.");
+		}
+		mNextConsumer = nullptr;
+	}
+
+	// Events
+
+	/**
+	 * Consume another event (e.g., insert it into time series). The event must respect causality.
+	 * @param time when the event was recorded
+	 * @param value of the event
+	 */
+	void addEvent(TIME time, VALUE value)
+	{
+		if (time < mLastTime) {
+			throw std::runtime_error("Unable to add event that violates causality.");
+		}
+		doAddEvent(time, value);
+		mLastTime = time;
+	}
+
+	/**
+	 * Notifies the event consumer that the time has advanced. This might be useful in case one of the consumers
+	 * in chain is actually delaying or emitting events so the whole pipeline will not get stuck.
+	 */
+	void advanceTime(TIME time)
+	{
+		if (time < mLastTime) {
+			throw std::runtime_error("Unable to advance time to past, since it violates causality.");
+		}
+		doAdvanceTime(time);
+		mLastTime = time;
+	}
+
+	/**
+	 * Clear all recorded events (start all over again).
+	 * Logical time is not reset.
+	 */
+	void clear()
+	{
+		doClear();
+	}
+};
+
 
 /**
  * This is de-facto a queue of time-marked events. It provides a similar interface like deque
@@ -17,7 +196,7 @@ using logtime_t = std::uint64_t;
  * @tparam TIME type used for logical time stamps
  */
 template<typename VALUE, typename TIME = logtime_t> 
-class TimeSeries
+class TimeSeries : public EventConsumer<VALUE, TIME>
 {
 public:
 	/**
@@ -98,15 +277,31 @@ public:
 		}
 	};
 
-private:
+protected:
 	/**
 	 * Internal data structure that actually holds the events.
 	 * The events are sorted by their time in ascending order.
+	 * Events with the same time may be in any order.
 	 */
-	std::deque<Event> mEvents;
+	std::vector<Event> mEvents;
+
+	void doAddEvent(TIME time, VALUE value) override
+	{
+		if (!this->mEvents.empty() && this->mEvents.back().time > time) {
+			throw std::runtime_error("Unable to add event that violates causality.");
+		}
+
+		mEvents.emplace_back(time, value);
+		EventConsumer<VALUE, TIME>::doAddEvent(time, value);
+	}
+
+	void doClear() override
+	{
+		mEvents.clear();
+		EventConsumer<VALUE, TIME>::doClear();
+	}
 
 public:
-	
 	// interface that simulates deque
 
 	std::size_t size() const
@@ -138,103 +333,6 @@ public:
 			throw std::runtime_error("The time series is empty. Unable to reach last item.");
 		}
 		return mEvents.back();
-	}
-
-	void clear()
-	{
-		mEvents.clear();
-	}
-
-	/**
-	 * Add another event to the time series. The event must respect the causality of this series.
-	 * @param time when the event was recorded
-	 * @param value of the event
-	 */
-	void addEvent(TIME time, VALUE value)
-	{
-		if (!mEvents.empty() && mEvents.back().time > time) {
-			throw std::runtime_error("The added event violated causality!");
-		}
-
-		mEvents.emplace_back(time, value);
-	}
-
-	/**
-	 * Inject an event out of order (shuffle it to the right positon).
-	 * @param time when the event was recorded
-	 * @param value of the event
-	 */
-	void insertRawEvent(TIME time, VALUE value)
-	{
-		std::size_t idx = mEvents.size();
-		mEvents.emplace_back(time, value);
-		while (idx > 0 && mEvents[idx] < mEvents[idx - 1]) {
-			std::swap(mEvents[idx], mEvents[idx - 1]);
-			--idx;
-		}
-	}
-
-	/**
-	 * Remove first event from the time series.
-	 */
-	void consumeEvent()
-	{
-		if (empty()) {
-			throw std::runtime_error("Unable to consume an event of empty time series.");
-		}
-		mEvents.pop_front();
-	}
-
-	/**
-	 * Remove first event from the time series.
-	 * @param lastEvent output argument - the event being removed is saved here
-	 */
-	void consumeEvent(Event &lastEvent)
-	{
-		if (empty()) {
-			throw std::runtime_error("Unable to consume an event of empty time series.");
-		}
-		lastEvent = mEvents.front();
-		mEvents.pop_front();
-	}
-
-	/**
-	 * Remove all events from the time series which are strictly before givent time.
-	 * @param time that marks all older events for removal
-	 */
-	void consumeEventsUntil(TIME time)
-	{
-		while (!empty() && front().time < time) {
-			mEvents.pop_front();
-		}
-	}
-
-	/**
-	 * Remove all events from the time series which are strictly before givent time.
-	 * @param time that marks all older events for removal
-	 * @param lastEvent output argument - the last event being removed before given time marker
-	 */
-	void consumeEventsUntil(TIME time, Event &lastEvent)
-	{
-		while (!empty() && front().time < time) {
-			lastEvent = front();
-			mEvents.pop_front();
-		}
-	}
-
-	/**
-	 * Take given list of time series and merge all their events into this time series.
-	 * This time series is cleared before merge.
-	 */
-	void merge(const std::vector<TimeSeries<VALUE, TIME>>& series)
-	{
-		clear();
-		for (auto&& s : series) {
-			for (auto&& e : s.mEvents) {
-				mEvents.push_back(e);
-			}
-		}
-		std::sort(mEvents.begin(), mEvents.end());
 	}
 
 
@@ -380,5 +478,80 @@ public:
 		return bestFit;
 	}
 };
+
+
+/**
+ * Extension of time series so it can hold "future" events. Future events are registered but not emitted
+ * to the next item in the chain until such action is triggered by time advancing or consumig a regular event.
+ */
+template<typename VALUE, typename TIME = logtime_t>
+class FutureTimeSeries : public TimeSeries<VALUE, TIME>
+{
+private:
+	/**
+	 * Index refering just after the last item that was already consumed (emitted to the next consumer in chain).
+	 */
+	std::size_t mLastConsumed;
+
+	/**
+	 * Emit events which has not yet been emited up to given timestamp (inclusive).
+	 */
+	void consumeEventsUntil(TIME time)
+	{
+		while (mLastConsumed < this->mEvents.size() && this->mEvents[mLastConsumed].time <= time) {
+			this->nextAddEvent(this->mEvents[mLastConsumed].time, this->mEvents[mLastConsumed].value);
+			++mLastConsumed;
+		}
+	}
+
+protected:
+	void doAddEvent(TIME time, VALUE value) override
+	{
+		consumeEventsUntil(time);
+		addFutureEvent(time, value); // this will actually take care of placing the event at the right position
+		EventConsumer<VALUE, TIME>::doAddEvent(time, value);	// yes, we skip the TimeSeries implementation
+	}
+
+
+	void doAdvanceTime(TIME time) override
+	{
+		consumeEventsUntil(time);
+		TimeSeries<VALUE, TIME>::doAdvanceTime(time);
+	}
+
+	void doClear() override
+	{
+		mLastConsumed = 0;
+		TimeSeries<VALUE, TIME>::doClear();
+	}
+
+public:
+	FutureTimeSeries() : mLastConsumed(0) {}
+
+	/**
+	 * Add event that is considered to be in the future. It is not passed along through the event consumer chain,
+	 * until the time is advanced enough using advanceTime method. Future events may actually be inserted in random order.
+	 * The only condition is that future event is not older than last real event.
+	 */
+	void addFutureEvent(TIME time, VALUE value)
+	{
+		if (this->mLastTime > time) {
+			throw std::runtime_error("Unable to add event that violates causality.");
+		}
+
+		// shuffle the event to the right place from the back
+		std::size_t idx = this->mEvents.size();
+		this->mEvents.emplace_back(time, value);
+		while (idx > 0 && this->mEvents[idx-1].time > this->mEvents[idx].time) {
+			std::swap(this->mEvents[idx-1], this->mEvents[idx]);
+			--idx;
+		}
+
+		if (idx < mLastConsumed) {
+			throw std::runtime_error("Invariant breached! Index of last consumed event and last timestamp are not in sync.");
+		}
+	}
+};
+
 
 #endif

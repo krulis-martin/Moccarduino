@@ -6,6 +6,7 @@
 
 #include <deque>
 #include <map>
+#include <memory>
 #include <stdexcept>
 #include <cctype>
 #include <random>
@@ -32,63 +33,58 @@ public:
 };
 
 
+/**
+ * Records one change of the value of the pin.
+ */
+struct ArduinoPinState {
+public:
+	pin_t pin;		///< pin identifier
+	int value;		///< new value (either written or received as input)
+
+	ArduinoPinState() : pin(~(pin_t)0), value(-1) {}
+	ArduinoPinState(pin_t p, int v) : pin(p), value(v) {}
+
+	inline bool operator<(const ArduinoPinState& ps) const
+	{
+		return pin < ps.pin || (pin == ps.pin && value < ps.value);
+	}
+
+	inline bool operator==(const ArduinoPinState& ps) const
+	{
+		return pin == ps.pin && value == ps.value;
+	}
+
+	/**
+	 * Helper function for testing. Generates a sequence of PinState structs from variadic arguments.
+	 * The user gives only actual state values, pin from template parameter is attached to every value.
+	 */
+	template<int PIN, typename...Args>
+	inline static std::vector<ArduinoPinState> sequence(Args...args) {
+		return { ArduinoPinState(PIN, args)... };
+	}
+};
+
+
 class ArduinoEmulator;
 
 /**
  * Represents one digital arduino pin (input or output).
  */
-class ArduinoPin
+class ArduinoPin : public EventConsumer<ArduinoPinState>
 {
 friend class ArduinoSimulationController;
 friend class ArduinoEmulator;
 
 public:
-	/**
-	 * Records one change of the value of the pin.
-	 */
-	struct PinState {
-	public:
-		pin_t pin;		///< pin identifier
-		int value;		///< new value (either written or received as input)
-
-		PinState() : pin(~(pin_t)0), value(-1) {}
-		PinState(pin_t p, int v) : pin(p), value(v) {}
-
-		inline bool operator<(const PinState& ps) const
-		{
-			return pin < ps.pin || (pin == ps.pin && value < ps.value);
-		}
-
-		inline bool operator==(const PinState& ps) const
-		{
-			return pin == ps.pin && value == ps.value;
-		}
-
-		/**
-		 * Helper function for testing. Generates a sequence of PinState structs from variadic arguments.
-		 * The user gives only actual state values, pin from template parameter is attached to every value.
-		 */
-		template<int PIN, typename...Args>
-		inline static std::vector<PinState> sequence(Args...args) {
-			return { PinState(PIN, args)... };
-		}
-	};
-
-	using Event = TimeSeries<PinState>::Event;
+	using Event = TimeSeries<ArduinoPinState>::Event;
 
 private:
 	static const int UNDEFINED = -1;
 
-	pin_t mPin;		///< pin identification
+	ArduinoPinState mState;
+
 	int mWiring;	///< how the pin is actually wired (INPUT/OUTPUT)
 	int mMode;		///< current operating mode (INPUT/OUTPUT)
-	int mValue;		///< current value of the pin (LOW/HIGH)
-
-	/**
-	 * Output pins record write events of the application in this queue.
-	 * Input pins use this as pre-recorded events the will be used to emulate changes in input value.
-	 */
-	TimeSeries<PinState> mEvents;
 
 	/*
 	 * Interface for the simulator.
@@ -96,37 +92,22 @@ private:
 
 	void reset()
 	{
-		clearEvents();
 		mMode = UNDEFINED;
-		mValue = UNDEFINED;
+		mState.value = UNDEFINED;
 	}
 
-	/**
-	 * Return const ref to events queue so it can be inspected.
-	 */
-	const TimeSeries<PinState>& getEvents() const
+protected:
+	void doAddEvent(logtime_t time, ArduinoPinState state) override
 	{
-		return mEvents;
+		if (mState.pin == state.pin) {
+			mState.value = state.value;
+		}
+		EventConsumer<ArduinoPinState>::doAddEvent(time, state);
 	}
 
-	/**
-	 * Remove all events from the queue.
-	 */
-	void clearEvents()
-	{
-		mEvents.clear();
-	}
-
-	/**
-	 * Add event into the queue by the simulator (do not perform any checks).
-	 */
-	void addEvent(logtime_t time, int value)
-	{
-		mEvents.addEvent(time, PinState(mPin, value));
-	}
 
 public:
-	ArduinoPin(pin_t pin, int wiring = UNDEFINED) : mPin(pin), mWiring(wiring), mMode(UNDEFINED), mValue(UNDEFINED) {}
+	ArduinoPin(pin_t pin, int wiring = UNDEFINED) : mState(pin, UNDEFINED), mWiring(wiring), mMode(UNDEFINED) {}
 
 	/**
 	 * Change the mode of the pin. This can be done only once (typically in setup).
@@ -145,10 +126,9 @@ public:
 		}
 
 		mMode = mode;
-		mEvents.clear(); // just to be sure
 
-		if (mMode == INPUT && mValue == UNDEFINED) {
-			mValue = HIGH;
+		if (mMode == INPUT && mState.value == UNDEFINED) {
+			mState.value = HIGH;
 		}
 	}
 
@@ -165,7 +145,7 @@ public:
 			throw ArduinoEmulatorException("Unable to read data from an output pin.");
 		}
 
-		return mValue;
+		return mState.value;
 	}
 
 	/**
@@ -181,24 +161,8 @@ public:
 			throw ArduinoEmulatorException("Unable to write data to an input pin.");
 		}
 
-		if (!mEvents.empty() && mEvents.back().time > time) {
-			throw ArduinoEmulatorException("Pin writing procedure violated causality. Probably internal emulator error.");
-		}
-
-		mValue = value;
-		mEvents.addEvent(time, PinState(mPin, value));
-	}
-
-	/**
-	 * The simulation time has advanced, process input queue.
-	 * @param newTime read all input values up to newTime and make the last one the current one
-	 */
-	void updateTime(logtime_t newTime)
-	{
-		if (mMode == INPUT) {
-			Event lastEvent(0, PinState(mPin, mValue));
-			mEvents.consumeEventsUntil(newTime + 1, lastEvent); // time+1 effectively changes "until" from "<" to "<="
-		}
+		mState.value = value;
+		addEvent(time, mState);
 	}
 };
 
@@ -222,6 +186,12 @@ private:
 	 * Pins of the arduino and their state.
 	 */
 	std::map<pin_t, ArduinoPin> mPins;
+
+	/**
+	 * Cache for future time series that feed the input pins.
+	 * These series need to be attached to emulator, so it can properly advance their time.
+	 */
+	std::map<pin_t, EventConsumer<ArduinoPinState>*> mInputs;
 
 	// Guards that prevent certain function from being called.
 	bool mEnablePinMode;
@@ -249,6 +219,11 @@ private:
 	void reset()
 	{
 		mCurrentTime = 0;
+
+		for (auto& [_, input] : mInputs) {
+			input->clear();
+		}
+
 		for (auto& [_, arduinoPin] : mPins) {
 			arduinoPin.reset();
 		}
@@ -256,12 +231,18 @@ private:
 
 	/**
 	 * Advances the Arduino emulator time forward by given number of microseconds.
+	 * @param us relative logical time in microseconds
 	 */
-	void advanceCurrentTime(logtime_t byMicroseconds)
+	void advanceCurrentTimeBy(logtime_t us)
 	{
-		mCurrentTime += byMicroseconds;
+		mCurrentTime += us;
+
+		for (auto& [_, input] : mInputs) {
+			input->advanceTime(mCurrentTime);
+		}
+
 		for (auto& [_, arduinoPin] : mPins) {
-			arduinoPin.updateTime(mCurrentTime);
+			arduinoPin.advanceTime(mCurrentTime);
 		}
 	}
 
@@ -283,6 +264,7 @@ private:
 	 */
 	void removeAllPins()
 	{
+		mInputs.clear();
 		mPins.clear();
 	}
 
@@ -295,7 +277,30 @@ private:
 		if (it != mPins.end()) {
 			throw ArduinoEmulatorException("Given pin already exists.");
 		}
-		mPins.emplace(pin, ArduinoPin(pin, wiring));
+		mPins.emplace(pin,ArduinoPin(pin, wiring));
+	}
+
+	/**
+	 * Register given event consumer as an input for particular pin.
+	 * @param pin associated with the input
+	 * @param input event consumer (i.e., producer in this context)
+	 */
+	void registerPinInput(pin_t pin, EventConsumer<ArduinoPinState> &input)
+	{
+		auto& arduinoPin = getPin(pin);
+		if (arduinoPin.mWiring != INPUT) {
+			throw std::runtime_error("Unable to attach input event provider to pin which is not wired as input.");
+		}
+
+		// detach old input chain first (if exists)
+		auto it = mInputs.find(pin);
+		if (it != mInputs.end()) {
+			it->second->lastConsumer()->detachNextConsumer();
+		}
+
+		// attach the corresponding input pin at the end of consumer chain
+		input.lastConsumer()->attachNextConsumer(arduinoPin);
+		mInputs[pin] = &input;
 	}
 
 	/**
@@ -357,7 +362,7 @@ public:
 
 		auto& arduinoPin = getPin(pin);
 		arduinoPin.setMode(mode);
-		advanceCurrentTime(mPinSetModeDelay);
+		advanceCurrentTimeBy(mPinSetModeDelay);
 	}
 
 	/**
@@ -372,7 +377,7 @@ public:
 
 		auto& arduinoPin = getPin(pin);
 		arduinoPin.write(val, mCurrentTime);
-		advanceCurrentTime(mPinWriteDelay);
+		advanceCurrentTimeBy(mPinWriteDelay);
 	}
 
 	/**
@@ -387,7 +392,7 @@ public:
 
 		auto& arduinoPin = getPin(pin);
 		auto val = arduinoPin.read();
-		advanceCurrentTime(mPinReadDelay);
+		advanceCurrentTimeBy(mPinReadDelay);
 		return val;
 	}
 
@@ -403,7 +408,7 @@ public:
 
 		auto& arduinoPin = getPin(pin);
 		auto val = arduinoPin.read();
-		advanceCurrentTime(mPinReadDelay); // delay taken from documentation
+		advanceCurrentTimeBy(mPinReadDelay); // delay taken from documentation
 		return val * 1023;
 	}
 
@@ -475,7 +480,7 @@ public:
 			throw ArduinoEmulatorException("The delay() function is disabled in the emulator.");
 		}
 
-		advanceCurrentTime((logtime_t)1000 * (logtime_t)ms);
+		advanceCurrentTimeBy((logtime_t)1000 * (logtime_t)ms);
 	}
 
 	/**
@@ -489,7 +494,7 @@ public:
 			throw ArduinoEmulatorException("The delayMicroseconds() function is disabled in the emulator.");
 		}
 
-		advanceCurrentTime((logtime_t)us);
+		advanceCurrentTimeBy((logtime_t)us);
 	}
 
 	// Advanced I/O

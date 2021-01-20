@@ -7,23 +7,8 @@
 // a declaration of a method from interface that will give us the emulator instance
 ArduinoEmulator& get_arduino_emulator_instance();
 
-void foo(const std::vector<int>& data)
-{
-    for (auto&& x : data) {
-        std::cout << x << std::endl;
-    }
-}
-
-
 int main(int argc, char *argv[])
 {
-    foo({ 1, 2, 3 });
-
-    std::vector<int> data({ 5, 6, 7 });
-    foo(data);
-    return 0;
-
-    /*
     // initialize simulation
     ArduinoSimulationController arduino(get_arduino_emulator_instance());
     arduino.registerPin(LED_BUILTIN, OUTPUT);
@@ -38,7 +23,8 @@ int main(int argc, char *argv[])
         }
 
         // analyze output pin history
-        auto& events = arduino.getPinEvents(LED_BUILTIN);
+        TimeSeries<ArduinoPinState> events;
+        arduino.attachPinEventsConsumer(LED_BUILTIN, events);
 
         if (events.empty()) {
             std::cout << "No LED changes recorded whatsoever." << std::endl;
@@ -74,5 +60,4 @@ int main(int argc, char *argv[])
     }
 
     return 0;
-    */
 }

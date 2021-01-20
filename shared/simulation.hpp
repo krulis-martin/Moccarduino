@@ -9,20 +9,6 @@
 
 class ArduinoSimulationController
 {
-public:
-	/**
-	 * Records one change of the value of the pin.
-	 */
-	struct PinEvent {
-	public:
-		logtime_t time;	///< time of the change
-		int value;		///< new value of the pin
-		pin_t pin;		///< identifier of the pin
-
-		PinEvent(logtime_t t, int v, pin_t p) : time(t), value(v), pin(p) {}
-	};
-
-
 private:
 	ArduinoEmulator& mEmulator;
 
@@ -30,6 +16,12 @@ private:
 	 * Mapping between actual emulator flags and their names (which can be provided in text configuration).
 	 */
 	std::map<std::string, bool*> mEnableMethodFlags;
+
+	/**
+	 * Input buffers (future time series) that are used to store input events.
+	 * These buffers are created and attached as event consumers to input pins.
+	 */
+	std::map<pin_t, FutureTimeSeries<ArduinoPinState>> mInputBuffers;
 
 	void setMethodEnableFlag(const std::string& name, bool enabled)
 	{
@@ -110,21 +102,31 @@ public:
 	}
 
 	/**
-	 * Get current pin value.
+	 * Attach an event consumer to an output pin. The cosumer receives all events produced by the pin.
 	 */
-	int getPinValue(pin_t pin)
+	void attachPinEventsConsumer(pin_t pin, EventConsumer<ArduinoPinState> &consumer)
 	{
 		auto& arduinoPin = mEmulator.getPin(pin);
-		return arduinoPin.mValue;
+		arduinoPin.lastConsumer()->attachNextConsumer(consumer);
+	}
+
+	/**
+	 * Get current pin value.
+	 */
+	int getPinValue(pin_t pin) const
+	{
+		auto& arduinoPin = mEmulator.getPin(pin);
+		return arduinoPin.mState.value;
 	}
 
 	/**
 	 * Forceufly set an explicit value to a pin.
+	 * TODO - perhaps we should remove this? Its too obscure.
 	 */
 	void setPinValue(pin_t pin, int value)
 	{
 		auto& arduinoPin = mEmulator.getPin(pin);
-		arduinoPin.mValue = value;
+		arduinoPin.mState.value = value;
 	}
 
 	/**
@@ -133,17 +135,12 @@ public:
 	 */
 	void enqueuePinValueChange(pin_t pin, int value, logtime_t delay = 0)
 	{
-		auto& arduinoPin = mEmulator.getPin(pin);
-		arduinoPin.addEvent(mEmulator.mCurrentTime + delay, value);
-	}
+		bool needsRegistration = mInputBuffers.find(pin) == mInputBuffers.end();
+		mInputBuffers[pin].addFutureEvent(mEmulator.mCurrentTime + delay, ArduinoPinState(pin, value));
 
-	/**
-	 * Return const ref to events queue of particular pin so it can be inspected.
-	 */
-	const TimeSeries<ArduinoPin::PinState>& getPinEvents(pin_t pin) const
-	{
-		auto& arduinoPin = mEmulator.getPin(pin);
-		return arduinoPin.getEvents();
+		if (needsRegistration) {
+			mEmulator.registerPinInput(pin, mInputBuffers[pin]);
+		}
 	}
 
 	/**
@@ -152,7 +149,7 @@ public:
 	void clearPinEvents(pin_t pin)
 	{
 		auto& arduinoPin = mEmulator.getPin(pin);
-		arduinoPin.clearEvents();
+		arduinoPin.clear();
 	}
 
 	/**
@@ -162,7 +159,7 @@ public:
 	void runSetup(logtime_t setupDelay = 1)
 	{
 		mEmulator.invokeSetup();
-		mEmulator.advanceCurrentTime(setupDelay);
+		mEmulator.advanceCurrentTimeBy(setupDelay);
 	}
 
 	/**
@@ -172,7 +169,7 @@ public:
 	void runSingleLoop(logtime_t loopDelay = 1)
 	{
 		mEmulator.invokeLoop();
-		mEmulator.advanceCurrentTime(loopDelay);
+		mEmulator.advanceCurrentTimeBy(loopDelay);
 	}
 
 	/**

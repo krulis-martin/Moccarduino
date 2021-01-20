@@ -9,6 +9,7 @@
 #include <string>
 #include <deque>
 #include <stdexcept>
+#include <limits>
 
 constexpr std::uint8_t LED_7SEG_EMPTY_SPACE = 0b11111111;
 constexpr std::uint8_t LED_7SEG_DASH = 0b10111111;
@@ -382,22 +383,47 @@ public:
 };
 
 
+template<int LEDS>
+class LedsEventsDemultiplexer : public EventConsumer<BitArray<LEDS>>
+{
+public:
+	using state_t = BitArray<LEDS>;
+
+protected:
+	void doAddEvent(logtime_t time, state_t value) override
+	{
+
+	}
+
+	void doClear() override
+	{
+
+	}
+
+public:
+
+};
+
+
+
 /**
  * Led display controlled by a serial line (data & clock pins).
  */
-class SerialLedDisplay
+template<int DIGITS>
+class SerialLedDisplay : public EventConsumer<ArduinoPinState>
 {
 private:
-	/**
-	 * Display digits (0 is the leftmost digit)
-	 * TODO replace this with time series that keep the whole state
-	 */
-	std::vector<LedDisplayDigit> mDigits;
+	BitArray<DIGITS * 8> mState;
 
 	/**
 	 * Register that accumulates data from the serial line.
 	 */
 	ShiftRegister mShiftRegister;
+
+	// pin numbers of associated inputs
+	pin_t mDataInputPin;
+	pin_t mClockInputPin;
+	pin_t mLatchPin;
 
 	/**
 	 * Last value of data pin that feeds the register.
@@ -416,6 +442,11 @@ private:
 	bool mLatchOpen;
 
 	/**
+	 *
+	 */
+	EventConsumer<BitArray<DIGITS * 8>> *mLedsStateConsumer;
+
+	/**
 	 * Update the states of all digits based on the data in the shift register.
 	 * @param time actual logical time of the event that triggered this update
 	 */
@@ -429,29 +460,19 @@ private:
 		auto state = mShiftRegister.get<LedDisplayDigit::state_t>(1);
 
 		// update the states based on the current data from shift register
-		for (std::size_t i = 0; i < mDigits.size(); ++i) {
-			mDigits[i].addNewState(time, bitRead(digits, i) ? state : LED_7SEG_EMPTY_SPACE);
-		}
+		// TODO
+//		for (std::size_t i = 0; i < mDigits.size(); ++i) {
+//			mDigits[i].addNewState(time, bitRead(digits, i) ? state : LED_7SEG_EMPTY_SPACE);
+//		}
 	}
 
-public:
-	SerialLedDisplay() :
-		mDigits(4),
-		mShiftRegister(16),
-		mDataInput(false),
-		mClockInput(false),
-		mLatchOpen(true)
-	{}
-
-	/**
-	 * Method called by the simulator to feed the input (changes on the serial line).
-	 */
-	void processPinEvent(pin_t pin, int value, logtime_t time)
+protected:
+	void doAddEvent(logtime_t time, ArduinoPinState state) override
 	{
-		bool binValue = value == HIGH ? true : false;
+		bool binValue = state.value == HIGH ? true : false;
 
 		// yes, this if-else is not ideal, but what the heck, there are only 3 pins of interest
-		if (pin == clock_pin) {
+		if (state.pin == mClockInputPin) {
 			if (mClockInput && !binValue) {
 				// clock pin confirms data pin when going from HIGH (current value) to LOW (new value)
 				mShiftRegister.push(mDataInput);
@@ -459,55 +480,51 @@ public:
 			}
 			mClockInput = binValue;
 		}
-		else if (pin == data_pin) {
+		else if (state.pin == mDataInputPin) {
 			mDataInput = binValue;
 		}
-		else if (pin == latch_pin) {
+		else if (state.pin == mLatchPin) {
 			mLatchOpen = binValue;
 			updateDigits(time);
 		}
 		else {
-			throw std::runtime_error("Unknown pin number " + std::to_string(pin) + ".");
+			throw std::runtime_error("Unknown pin number " + std::to_string(state.pin) + ".");
 		}
 	}
 
-	/**
-	 * Get the number of digits of the display.
-	 */
-	std::size_t digits() const
+	void doClear() override
 	{
-		return mDigits.size();
-	}
-
-	/**
-	 * Get an object representing one display digit.
-	 * @param idx index of the digit (0 = leftmost one)
-	 */
-	LedDisplayDigit& getDigit(std::size_t idx)
-	{
-		return mDigits[idx];
-	}
-
-	/**
-	 * Get an object representing one display digit.
-	 * @param idx index of the digit (0 = leftmost one)
-	 */
-	const LedDisplayDigit& getDigit(std::size_t idx) const
-	{
-		return mDigits[idx];
-	}
-
-	/**
-	 * Perform demultiplexing on the whole display. Consolidate states and get most likely glyphs being displayed.
-	 * @param currentTime The currentTime-lastTime gap defines the consolidation window. Also this becomes new lastTime.
-	 * @param threshold Minimal time a LED had to be ON in consolidation window to consider it lit (in demultiplexed state).
-	 * @param maxTimeSlice If greater than 0, it restricts the maximal size of the consolidation window.
-	 */
-	void demultiplexing(logtime_t currentTime, std::size_t threshold, logtime_t maxTimeSlice = 0)
-	{
-		for (auto&& digit : mDigits) {
-			digit.demultiplexing(currentTime, threshold, maxTimeSlice);
+		if (mLedsStateConsumer) {
+			mLedsStateConsumer->clear();
 		}
+		EventConsumer<ArduinoPinState>::doClear();
+	}
+
+
+public:
+	SerialLedDisplay() :
+		mState(true), // all bits are true = LEDs are off
+		mShiftRegister(8 + ((DIGITS+7) / 8) * 8),	// 8 (glyph mask) + one bit per digit (round up to nearest byte)
+		mDataInputPin(std::numeric_limits<pin_t>::max()),
+		mClockInputPin(std::numeric_limits<pin_t>::max()),
+		mLatchPin(std::numeric_limits<pin_t>::max()),
+		mDataInput(false),
+		mClockInput(false),
+		mLatchOpen(true),
+		mLedsStateConsumer(nullptr)
+	{}
+
+	/**
+	 *
+	 */
+	void attachToSimulation(ArduinoSimulationController &simulation, pin_t dataInputPin, pin_t clockInputPin, pin_t latchPin)
+	{
+		mDataInputPin = dataInputPin;
+		mClockInputPin = clockInputPin;
+		mLatchPin = latchPin;
+		simulation.attachPinEventsConsumer(dataInputPin, *this);
+		simulation.attachPinEventsConsumer(clockInputPin, *this);
+		simulation.attachPinEventsConsumer(latchPin, *this);
 	}
 };
 
