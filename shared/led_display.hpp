@@ -1,6 +1,7 @@
 #ifndef MOCCARDUINO_SHARED_LED_DISPLAY_HPP
 #define MOCCARDUINO_SHARED_LED_DISPLAY_HPP
 
+#include <simulation.hpp>
 #include <emulator.hpp>
 #include <helpers.hpp>
 #include <constants.hpp>
@@ -256,7 +257,7 @@ public:
 
 
 /**
- * DEPRECATED - TODO remove this (integrate generic demultiplexing in time series) 
+ * DEPRECATED - TODO remove this (integrate generic demultiplexing as event consumer) 
  * Represents state of one digit of 7-seg LED display.
  * Also provides means for state demultiplexing and pattern detection.
  */
@@ -383,6 +384,9 @@ public:
 };
 
 
+/**
+ * TODO
+ */
 template<int LEDS>
 class LedsEventsDemultiplexer : public EventConsumer<BitArray<LEDS>>
 {
@@ -408,12 +412,18 @@ public:
 
 /**
  * Led display controlled by a serial line (data & clock pins).
+ * The display is ArduinoPinState event consumer since it consumes pin events
+ * from three different pins. It is also an event emitter as LED state
+ * event consumer may be attached to the display.
  */
 template<int DIGITS>
 class SerialLedDisplay : public EventConsumer<ArduinoPinState>
 {
+public:
+	using state_t = BitArray<DIGITS * 8>;
+
 private:
-	BitArray<DIGITS * 8> mState;
+	state_t mState;
 
 	/**
 	 * Register that accumulates data from the serial line.
@@ -442,28 +452,36 @@ private:
 	bool mLatchOpen;
 
 	/**
-	 *
+	 * Event consumer for newly formed state changes.
 	 */
-	EventConsumer<BitArray<DIGITS * 8>> *mLedsStateConsumer;
+	EventConsumer<state_t>* mLedsStateConsumer;
 
 	/**
 	 * Update the states of all digits based on the data in the shift register.
 	 * @param time actual logical time of the event that triggered this update
 	 */
-	void updateDigits(logtime_t time)
+	void updateState(logtime_t time)
 	{
 		if (!mLatchOpen) {
 			return; // latch is closed, no update
 		}
 
-		auto digits = mShiftRegister.get<std::uint8_t>(0);
-		auto state = mShiftRegister.get<LedDisplayDigit::state_t>(1);
+		auto activeDigits = mShiftRegister.get<std::uint8_t>(0);
+		auto glyph = mShiftRegister.get<std::uint8_t>(1);
 
-		// update the states based on the current data from shift register
-		// TODO
-//		for (std::size_t i = 0; i < mDigits.size(); ++i) {
-//			mDigits[i].addNewState(time, bitRead(digits, i) ? state : LED_7SEG_EMPTY_SPACE);
-//		}
+		state_t newState(true);
+		for (std::size_t d = 0; d < DIGITS; ++d) {
+			if (bitRead(activeDigits, d)) {
+				newState.set<uint8_t>(glyph, d * 8);
+			}
+		}
+
+		if (newState != mState) {
+			mState = newState;
+			if (mLedsStateConsumer != nullptr) {
+				mLedsStateConsumer->addEvent(time, mState);
+			}
+		}
 	}
 
 protected:
@@ -476,7 +494,7 @@ protected:
 			if (mClockInput && !binValue) {
 				// clock pin confirms data pin when going from HIGH (current value) to LOW (new value)
 				mShiftRegister.push(mDataInput);
-				updateDigits(time);
+				updateState(time);
 			}
 			mClockInput = binValue;
 		}
@@ -485,10 +503,25 @@ protected:
 		}
 		else if (state.pin == mLatchPin) {
 			mLatchOpen = binValue;
-			updateDigits(time);
+			updateState(time);
 		}
 		else {
 			throw std::runtime_error("Unknown pin number " + std::to_string(state.pin) + ".");
+		}
+
+		// pass the event along
+		EventConsumer<ArduinoPinState>::doAddEvent(time, state);
+
+		if (mLedsStateConsumer != nullptr) {
+			mLedsStateConsumer->advanceTime(time); // actual new events are emitted in updateState
+		}
+	}
+
+	void doAdvanceTime(logtime_t time)
+	{
+		EventConsumer<ArduinoPinState>::doAdvanceTime(time);
+		if (mLedsStateConsumer != nullptr) {
+			mLedsStateConsumer->advanceTime(time);
 		}
 	}
 
@@ -504,10 +537,10 @@ protected:
 public:
 	SerialLedDisplay() :
 		mState(true), // all bits are true = LEDs are off
-		mShiftRegister(8 + ((DIGITS+7) / 8) * 8),	// 8 (glyph mask) + one bit per digit (round up to nearest byte)
-		mDataInputPin(std::numeric_limits<pin_t>::max()),
-		mClockInputPin(std::numeric_limits<pin_t>::max()),
-		mLatchPin(std::numeric_limits<pin_t>::max()),
+		mShiftRegister(16),	// 8 (glyph mask) + one bit per digit (max 8 at this point)
+		mDataInputPin(std::numeric_limits<pin_t>::max()), // invalid value
+		mClockInputPin(std::numeric_limits<pin_t>::max()), // invalid value
+		mLatchPin(std::numeric_limits<pin_t>::max()), // invalid value
 		mDataInput(false),
 		mClockInput(false),
 		mLatchOpen(true),
@@ -515,9 +548,10 @@ public:
 	{}
 
 	/**
-	 *
+	 * Attach the LED display to existing simulation (connect as event consumer to corresponding pins).
 	 */
-	void attachToSimulation(ArduinoSimulationController &simulation, pin_t dataInputPin, pin_t clockInputPin, pin_t latchPin)
+	void attachToSimulation(ArduinoSimulationController& simulation,
+		pin_t dataInputPin = data_pin, pin_t clockInputPin = clock_pin, pin_t latchPin = latch_pin)
 	{
 		mDataInputPin = dataInputPin;
 		mClockInputPin = clockInputPin;
@@ -525,6 +559,19 @@ public:
 		simulation.attachPinEventsConsumer(dataInputPin, *this);
 		simulation.attachPinEventsConsumer(clockInputPin, *this);
 		simulation.attachPinEventsConsumer(latchPin, *this);
+	}
+
+	/**
+	 * Attach a consumer for newly emitted display state changes.
+	 */
+	void attachLedStateConsumer(EventConsumer<state_t>& consumer)
+	{
+		if (mLedsStateConsumer != nullptr) {
+			mLedsStateConsumer->lastConsumer()->attachNextConsumer(consumer);
+		}
+		else {
+			mLedsStateConsumer = &consumer;
+		}
 	}
 };
 
