@@ -11,6 +11,7 @@
 #include <deque>
 #include <stdexcept>
 #include <limits>
+#include <cstdint>
 
 constexpr std::uint8_t LED_7SEG_EMPTY_SPACE = 0b11111111;
 constexpr std::uint8_t LED_7SEG_DASH = 0b10111111;
@@ -82,7 +83,7 @@ public:
 	 */
 	std::uint8_t getDigitRaw(std::size_t idx, bool maskDecimalDot = false) const
 	{
-		auto res = mState.get<std::uint8_t>(idx * 8);
+		auto res = mState.template get<std::uint8_t>(idx * 8);
 		if (maskDecimalDot) {
 			res = res | ~LED_7SEG_DECIMAL_DOT; // mask out
 		}
@@ -531,7 +532,7 @@ private:
 		state_t newState(true);
 		for (std::size_t d = 0; d < DIGITS; ++d) {
 			if (bitRead(activeDigits, d)) {
-				newState.set<uint8_t>(glyph, d * 8);
+				newState.template set<std::uint8_t>(glyph, d * 8);
 			}
 		}
 

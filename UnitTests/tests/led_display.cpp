@@ -73,7 +73,7 @@ public:
 		ASSERT_EQ(d1.getNumber(), 123, "");
 		ASSERT_EQ(d1.getText(), " iz3", "text interpretation of a number");
 		for (std::size_t i = 0; i < 4; ++i) {
-			ASSERT_EQ(d1.getDigit(i, true), i, "");
+			ASSERT_EQ(d1.getDigit(i, true), (int)i, "");
 			ASSERT_FALSE(d1.hasDecimalDot(i), "unexpected decimal dot");
 		}
 		ASSERT_EQ(d1.decimalDotPosition(), 3, "");
