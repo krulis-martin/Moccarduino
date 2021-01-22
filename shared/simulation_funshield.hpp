@@ -7,6 +7,7 @@
 #include <funshield.h>
 
 /**
+ * TODO -- needs fixing 
  * Simulation controller for funshield which is attached to Arduino simulator.
  */
 class FunshieldSimulationController
@@ -27,16 +28,6 @@ private:
 	 */
 	std::vector<pin_t> mLedPins = { led1_pin, led2_pin, led3_pin, led4_pin };
 
-	/**
-	 * Objects representing individual digits of 7seg display.
-	 */
-	std::vector<LedDisplayDigit> mDisplayDigits;
-
-	/**
-	 * Shift register used to control the display via serial line.
-	 */
-	ShiftRegister mDisplayShiftRegister;
-
 	// Simulation parameters
 
 	/**
@@ -56,8 +47,6 @@ public:
 	 */
 	FunshieldSimulationController(ArduinoSimulationController& arduino) :
 		mArduino(arduino),
-		mDisplayDigits(4),
-		mDisplayShiftRegister(16),
 		mLoopDelay(100),
 		mButtonBouncingDelay(0) // 0 = disabled
 	{

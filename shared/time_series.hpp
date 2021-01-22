@@ -189,6 +189,90 @@ public:
 
 
 /**
+ * Extended event consumer which also may produce events of different type.
+ * It has a sprout that may have another event consumer (of differnt type) attached.
+ * This is base class for all event transformers.
+ * @param VALUE type of values being consumed
+ * @param PROD_VALUE type of values being produced
+ */
+template<typename VALUE, typename PROD_VALUE, typename TIME = logtime_t>
+class ForkedEventConsumer : EventConsumer<VALUE, TIME>
+{
+private:
+	/**
+	 * Consumer of newly emitted/transformed events (beginning of another chain).
+	 */
+	EventConsumer<PROD_VALUE, TIME>* mSproutConsumer;
+
+protected:
+	virtual void doAddEvent(TIME time, VALUE value)
+	{
+		EventConsumer<VALUE, TIME>::doAddEvent(time, value);
+		if (mSproutConsumer != nullptr) {
+			mSproutConsumer->addEvent(time, (PROD_VALUE)value);
+		}
+	}
+
+	virtual void doAdvanceTime(TIME time)
+	{
+		EventConsumer<VALUE, TIME>::doAdvanceTime(time);
+		if (mSproutConsumer != nullptr) {
+			mSproutConsumer->doAdvanceTime(time);
+		}
+	}
+
+	virtual void doClear()
+	{
+		EventConsumer<VALUE, TIME>::doClear();
+		if (mSproutConsumer != nullptr) {
+			mSproutConsumer->doClear();
+		}
+	}
+
+public:
+	ForkedEventConsumer() : mSproutConsumer(nullptr) {}
+
+	/**
+	 * Get prout consumer which receives newly emitted events.
+	 */
+	EventConsumer<PROD_VALUE, TIME>* sproutConsumer()
+	{
+		return mSproutConsumer;
+	}
+
+	/**
+	 * Get prout consumer which receives newly emitted events.
+	 */
+	const EventConsumer<PROD_VALUE, TIME>* sproutConsumer() const
+	{
+		return mSproutConsumer;
+	}
+
+	/**
+	 * Attach sprout consumer which receives newly emitted events.
+	 */
+	void attachSproutConsumer(EventConsumer<PROD_VALUE, TIME>& consumer)
+	{
+		if (mSproutConsumer != nullptr) {
+			throw std::runtime_error("Sprout consumer is already attached.");
+		}
+		mSproutConsumer = &consumer;
+	}
+
+	/**
+	 * Detach the sprout event consumer.
+	 */
+	void detachSproutConsumer()
+	{
+		if (mSproutConsumer == nullptr) {
+			throw std::runtime_error("No sprout consumer is attached.");
+		}
+		mSproutConsumer = nullptr;
+	}
+};
+
+
+/**
  * This is de-facto a queue of time-marked events. It provides a similar interface like deque
  * (which is also used as internal storage) and additionaly some analytical functions that
  * might help with behavioral assertions.

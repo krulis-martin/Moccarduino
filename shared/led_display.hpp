@@ -257,135 +257,8 @@ public:
 
 
 /**
- * DEPRECATED - TODO remove this (integrate generic demultiplexing as event consumer) 
- * Represents state of one digit of 7-seg LED display.
- * Also provides means for state demultiplexing and pattern detection.
- */
-class LedDisplayDigit
-{
-public:
-	using state_t = std::uint8_t;
-
-private:
-	/**
-	 * Records one change of the value of the pin.
-	 */
-	struct Event {
-	public:
-		logtime_t time;	///< time of the change
-		state_t state;	///< new state of the display (one bit representing one LED)
-
-		Event(logtime_t t, state_t s) : time(t), state(s) {}
-	};
-
-	logtime_t mLastTime;			///< Time when last state was consolidated.
-	state_t mLastState;			///< Current state of the LED display.
-	state_t mDemultiplexedState;	///< Last state aggregated when time multiplexing is considered.
-	std::deque<Event> mEvents;
-
-	/**
-	 * Update active times collected stats by given state.
-	 * @param activeTimes array[8] of accumulated times for each bit
-	 * @param state current state added to the stats
-	 * @param dt how long was current state active.
-	 */
-	void updateActiveTimesFromState(logtime_t* activeTimes, state_t state, logtime_t dt) const
-	{
-		for (std::size_t bit = 0; bit < 8; ++bit) {
-			activeTimes[bit] += bitRead(mLastState, bit) == ON ? dt : 0;
-		}
-	}
-
-
-public:
-	LedDisplayDigit() : mLastTime(0), mLastState(0xff), mDemultiplexedState(0xff) {}
-
-	logtime_t getLastTime() const
-	{
-		return mLastTime;
-	}
-
-	state_t getLastState() const
-	{
-		return mLastState;
-	}
-
-	state_t getDemultiplexedState() const
-	{
-		return mDemultiplexedState;
-	}
-
-
-	void addNewState(logtime_t time, state_t state)
-	{
-		if (!mEvents.empty()) {
-			if (mEvents.back().time > time) {
-				throw ArduinoEmulatorException("LED state recording detected violation of causality. Probably internal emulator error.");
-			}
-			if (mEvents.back().time == time) {
-				mEvents.back().state = state;
-				return;
-			}
-		}
-		mEvents.push_back(Event(time, state));
-	}
-
-
-	/**
-	 * Perform event demultiplexing and consolidate last state.
-	 * @param currentTime The currentTime-lastTime gap defines the consolidation window. Also this becomes new lastTime.
-	 * @param threshold Minimal time a LED had to be ON in consolidation window to consider it lit (in demultiplexed state).
-	 * @param maxTimeSlice If greater than 0, it restricts the maximal size of the consolidation window.
-	 * @return New demultiplexing state.
-	 */
-	state_t demultiplexing(logtime_t currentTime, std::size_t threshold, logtime_t maxTimeSlice = 0)
-	{
-		if (currentTime < mLastTime) {
-			return mDemultiplexedState;
-		}
-
-		// crop all parameters to avoid undefined situations...
-		maxTimeSlice = std::min(maxTimeSlice, currentTime);
-		logtime_t fromTime = std::max(mLastTime, currentTime - maxTimeSlice);
-		threshold = std::min(threshold, currentTime - fromTime);
-
-		// make sure we have the right starting state
-		while (!mEvents.empty() && mEvents.front().time < fromTime) {
-			mLastState = mEvents.front().state;
-			mEvents.pop_front();
-		}
-
-		// compute how long was each LED on in total
-		logtime_t activeTimes[8];
-		std::fill(activeTimes, activeTimes + 8, 0);
-		while (!mEvents.empty() && mEvents.front().time <= currentTime) {
-			// add time delta to all LEDs which have been lit for that duration
-			updateActiveTimesFromState(activeTimes, mEvents.front().state, mEvents.front().time - fromTime);
-
-			fromTime = mEvents.front().time;
-			mLastState = mEvents.front().state;
-			mEvents.pop_front();
-		}
-
-		// add last trailing time slot to active times
-		if (fromTime < currentTime) {
-			updateActiveTimesFromState(activeTimes, mLastState, currentTime - fromTime);
-		}
-
-		// update demuxed state based on collected active times and given threshold
-		mDemultiplexedState = 0;
-		for (std::size_t bit = 0; bit < 8; ++bit) {
-			bitWrite(mDemultiplexedState, bit, activeTimes[bit] >= threshold ? ON : OFF);
-		}
-
-		mLastTime = currentTime;
-		return mDemultiplexedState;
-	}
-};
-
-
-/**
- * TODO
+ * Demultiplexes state changes by computing the time each LED has been lit
+ * in given quantization intervals and 
  */
 template<int LEDS>
 class LedsEventsDemultiplexer : public EventConsumer<BitArray<LEDS>>
@@ -393,31 +266,222 @@ class LedsEventsDemultiplexer : public EventConsumer<BitArray<LEDS>>
 public:
 	using state_t = BitArray<LEDS>;
 
-protected:
-	void doAddEvent(logtime_t time, state_t value) override
-	{
+private:
+	/**
+	 * Time window for demultiplexing.
+	 */
+	logtime_t mTimeWindow;
 
+	/**
+	 * Minimal time (in each time window) a LED has to be ON, so we consider it ON in demuxed state.
+	 */
+	logtime_t mThreshold;
+
+	/**
+	 * Time stamp where currently opened time window should be closed.
+	 */
+	logtime_t mNextMarker;
+
+	/**
+	 * Last encountered state set by addEvent().
+	 */
+	state_t mLastState;
+
+	/**
+	 * Demultiplexed state stored by last closed window.
+	 */
+	state_t mLastDemuxedState;
+
+	/**
+	 * Accumulated active times for each LED in the last time window.
+	 */
+	std::array<logtime_t, LEDS> mActiveTimes;
+
+	/**
+	 * Compute new demuxed state from the accumulated active times and reset active times in the process.
+	 */
+	state_t demuxState()
+	{
+		state_t newState(OFF);
+		for (std::size_t i = 0; i < LEDS; ++i) {
+			if (mActiveTimes[i] >= mThreshold) {
+				newState.setBit(ON, i); // the LED has been ON for sufficient amount of time
+			}
+			mActiveTimes[i] = 0;
+		}
+		return newState;
+	}
+
+	/**
+	 * Use last know state and increase time accumulators for all LEDs which are currently ON.
+	 * @param dt how much time have passed since the last update
+	 */
+	void accumulateActiveTimes(logtime_t dt)
+	{
+		for (std::size_t i = 0; i < LEDS; ++i) {
+			if (mLastState.getBit(i) == ON) {
+				mActiveTimes[i] += dt;
+			}
+		}
+	}
+
+protected:
+	void doAddEvent(logtime_t time, state_t state) override
+	{
+		doAdvanceTime(time); // the interesting stuff happens there
+		mLastState = state;
+	}
+
+	void doAdvanceTime(logtime_t time)
+	{
+		if (time >= mNextMarker && this->mLastTime < mNextMarker) {
+			// traliling time fragment needs to be accumulated
+			accumulateActiveTimes(mNextMarker - this->mLastTime);
+			this->mLastTime = mNextMarker; // everyting up to the marker is resolved
+
+			// process the last open window
+			auto demuxedState = demuxState(); // assemble new demuxed state from the window
+			if (mLastDemuxedState != demuxedState) {
+				// demuxed state has changed
+				mLastDemuxedState = demuxedState;
+				if (this->nextConsumer() != nullptr) {
+					// emit event for following consumers
+					this->nextConsumer()->addEvent(mNextMarker, demuxState);
+				}
+				mNextMarker += mTimeWindow; // time window shifts one place
+			}
+		}
+
+		if (time < mNextMarker) {
+			// update current window
+			accumulateActiveTimes(time - this->mLastTime);
+		}
+		else {
+			// open new window starting now
+			mNextMarker = time + mTimeWindow;
+		}
 	}
 
 	void doClear() override
 	{
-
+		mNextMarker = this->mLastTime;
+		mLastState.fill(OFF);
+		mLastDemuxedState.fill(OFF);
+		mActiveTimes.fill(0);
+		EventConsumer<BitArray<LEDS>>::doClear();
 	}
 
 public:
+	/**
+	 * @param timeWindow period in which the changes are merged together and evaluated by thresholding
+	 * @param threshold how long (inside a time window) a LED needs to be on in given period of time to be considered lit
+	 */
+	LedsEventsDemultiplexer(logtime_t timeWindow = 50000, logtime_t threshold = 5000) :
+		mTimeWindow(timeWindow),
+		mThreshold(threshold),
+		mNextMarker(0),
+		mLastState(OFF),
+		mLastDemuxedState(OFF)
+	{
+		if (mTimeWindow == 0) {
+
+		}
+
+		if (mThreshold == 0 || mThreshold > mTimeWindow) {
+			throw std::runtime_error("Given threshold is out of range of the time window.");
+		}
+
+		mActiveTimes.fill(0);
+	}
 
 };
 
 
+/**
+ * Simple display (a bunch of LEDs), each LED is controlled by its own Arduino pin.
+ * @tparam LEDS number of LEDs the display has
+ */
+template<int LEDS>
+class LedDisplay : public ForkedEventConsumer<ArduinoPinState, BitArray<LEDS>>
+{
+public:
+	using state_t = BitArray<LEDS>;
+
+private:
+	/**
+	 * Actual state of the LEDs
+	 */
+	state_t mState;
+
+	/**
+	 * Information about wiring. Translates pins to LED indices.
+	 */
+	std::map<pin_t, std::size_t> mLedPins;
+
+protected:
+	void doAddEvent(logtime_t time, ArduinoPinState state) override
+	{
+		auto it = mLedPins.find(state.pin);
+		if (it == mLedPins.end()) {
+			// ignore unknown pins, but we can advance time at least
+			EventConsumer<ArduinoPinState>::doAdvanceTime(time);
+			if (this->sproutConsumer() != nullptr) {
+				this->sproutConsumer()->advanceTime(time);
+			}
+			return;	
+		}
+
+		// update the state
+		auto idx = it->second;
+		bool value = state.value == ON ? ON : OFF;
+		if (mState.getBit(idx) != value) {
+			// the state actually changes
+			mState.setBit(value, idx);
+			if (this->sproutConsumer() != nullptr) {
+				this->sproutConsumer()->addEvent(time, mState);
+			}
+		}
+
+		EventConsumer<ArduinoPinState>::doAddEvent(time, state);
+	}
+
+public:
+	LedDisplay() : mState(OFF) {}
+
+	/**
+	 * Attach the LED display to existing simulation (connect as event consumer to corresponding pins).
+	 */
+	void attachToSimulation(ArduinoSimulationController& simulation, const std::vector<pin_t> wiring)
+	{
+		if (wiring.size() != LEDS) {
+			throw std::runtime_error("Display with " + std::to_string(LEDS) + " LEDs cannot be connected to "
+				+ std::to_string(wiring.size()) + " pins.");
+		}
+
+		for (std::size_t i = 0; i < wiring.size(); ++i) {
+			if (mLedPins.find(wiring[i]) != mLedPins.end()) {
+				throw std::runtime_error("Pin " + std::to_string(wiring[i]) + " is attached to multiple LEDs.");
+			}
+			mLedPins[wiring[i]] = i;
+			simulation.attachPinEventsConsumer(wiring[i], *this);
+		}
+	}
+
+	state_t getState() const
+	{
+		return mState;
+	}
+};
+
 
 /**
- * Led display controlled by a serial line (data & clock pins).
+ * 7-seg LED display controlled by a serial line (data & clock pins).
  * The display is ArduinoPinState event consumer since it consumes pin events
- * from three different pins. It is also an event emitter as LED state
- * event consumer may be attached to the display.
+ * from three different pins. It is also an event emitter (forked consumer);
+ * display state events are produced off the sprout.
  */
 template<int DIGITS>
-class SerialLedDisplay : public EventConsumer<ArduinoPinState>
+class SerialSegLedDisplay : public ForkedEventConsumer<ArduinoPinState, BitArray<DIGITS * 8>>
 {
 public:
 	using state_t = BitArray<DIGITS * 8>;
@@ -452,11 +516,6 @@ private:
 	bool mLatchOpen;
 
 	/**
-	 * Event consumer for newly formed state changes.
-	 */
-	EventConsumer<state_t>* mLedsStateConsumer;
-
-	/**
 	 * Update the states of all digits based on the data in the shift register.
 	 * @param time actual logical time of the event that triggered this update
 	 */
@@ -478,8 +537,8 @@ private:
 
 		if (newState != mState) {
 			mState = newState;
-			if (mLedsStateConsumer != nullptr) {
-				mLedsStateConsumer->addEvent(time, mState);
+			if (this->sproutConsumer() != nullptr) {
+				this->sproutConsumer()->addEvent(time, mState);
 			}
 		}
 	}
@@ -512,39 +571,21 @@ protected:
 		// pass the event along
 		EventConsumer<ArduinoPinState>::doAddEvent(time, state);
 
-		if (mLedsStateConsumer != nullptr) {
-			mLedsStateConsumer->advanceTime(time); // actual new events are emitted in updateState
+		if (this->sproutConsumer() != nullptr) {
+			this->sproutConsumer()->advanceTime(time); // actual new events are emitted in updateState
 		}
 	}
-
-	void doAdvanceTime(logtime_t time)
-	{
-		EventConsumer<ArduinoPinState>::doAdvanceTime(time);
-		if (mLedsStateConsumer != nullptr) {
-			mLedsStateConsumer->advanceTime(time);
-		}
-	}
-
-	void doClear() override
-	{
-		if (mLedsStateConsumer) {
-			mLedsStateConsumer->clear();
-		}
-		EventConsumer<ArduinoPinState>::doClear();
-	}
-
 
 public:
-	SerialLedDisplay() :
-		mState(true), // all bits are true = LEDs are off
+	SerialSegLedDisplay() :
+		mState(OFF), // all LEDS are dimmed
 		mShiftRegister(16),	// 8 (glyph mask) + one bit per digit (max 8 at this point)
 		mDataInputPin(std::numeric_limits<pin_t>::max()), // invalid value
 		mClockInputPin(std::numeric_limits<pin_t>::max()), // invalid value
 		mLatchPin(std::numeric_limits<pin_t>::max()), // invalid value
 		mDataInput(false),
 		mClockInput(false),
-		mLatchOpen(true),
-		mLedsStateConsumer(nullptr)
+		mLatchOpen(true)
 	{}
 
 	/**
@@ -562,16 +603,11 @@ public:
 	}
 
 	/**
-	 * Attach a consumer for newly emitted display state changes.
+	 * Return the raw current LED state.
 	 */
-	void attachLedStateConsumer(EventConsumer<state_t>& consumer)
+	state_t getState() const
 	{
-		if (mLedsStateConsumer != nullptr) {
-			mLedsStateConsumer->lastConsumer()->attachNextConsumer(consumer);
-		}
-		else {
-			mLedsStateConsumer = &consumer;
-		}
+		return mState;
 	}
 };
 
