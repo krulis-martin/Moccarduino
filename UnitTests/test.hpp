@@ -51,10 +51,10 @@ inline void assert_true_(bool condition, const char* conditionStr, const std::st
 }
 
 template<typename T1, typename T2>
-inline void assert_eq_(bool condition, const char* exprStr, const char* correctStr, T1 expr, T2 correct, const std::string& comment, int line, const char* srcFile)
+inline void assert_cmp_(bool condition, const char* exprStr, const char* cmpOp, const char* correctStr, T1 expr, T2 correct, const std::string& comment, int line, const char* srcFile)
 {
 	if (!condition) {
-		throw (TestException() << "Assertion failed (" << exprStr << " == " << correctStr << "): " << comment << "\n"
+		throw (TestException() << "Assertion failed (" << exprStr << " " << cmpOp << " " << correctStr << "): " << comment << "\n"
 			<< "value " << expr << " given, but " << correct << " was expected at " << srcFile << "[" << line << "]");
 	}
 }
@@ -83,7 +83,12 @@ inline void assert_exception_(std::function<void()> const& op, const char* excep
 
 #define ASSERT_TRUE(condition, comment) assert_true_((condition), #condition, comment, __LINE__, __FILE__)
 #define ASSERT_FALSE(condition, comment) assert_true_(!(condition), #condition, comment, __LINE__, __FILE__)
-#define ASSERT_EQ(expr, correct, comment) assert_eq_((expr) == (correct), #expr, #correct, (expr), (correct), comment, __LINE__, __FILE__)
+#define ASSERT_EQ(expr, correct, comment) assert_cmp_((expr) == (correct), #expr, "==", #correct, (expr), (correct), comment, __LINE__, __FILE__)
+#define ASSERT_NE(expr, correct, comment) assert_cmp_((expr) != (correct), #expr, "!=", #correct, (expr), (correct), comment, __LINE__, __FILE__)
+#define ASSERT_LT(expr, correct, comment) assert_cmp_((expr) < (correct), #expr, "<", #correct, (expr), (correct), comment, __LINE__, __FILE__)
+#define ASSERT_LE(expr, correct, comment) assert_cmp_((expr) <= (correct), #expr, "<=", #correct, (expr), (correct), comment, __LINE__, __FILE__)
+#define ASSERT_GT(expr, correct, comment) assert_cmp_((expr) > (correct), #expr, ">", #correct, (expr), (correct), comment, __LINE__, __FILE__)
+#define ASSERT_GE(expr, correct, comment) assert_cmp_((expr) >= (correct), #expr, ">=", #correct, (expr), (correct), comment, __LINE__, __FILE__)
 #define ASSERT_EXCEPTION(exClass, op, comment) assert_exception_<exClass>(op, #exClass, comment, __LINE__, __FILE__)
 
 

@@ -80,6 +80,11 @@ public:
 		return true;
 	}
 
+	bool operator!=(const BitArray<N>& ba) const
+	{
+		return !operator==(ba);
+	}
+
 	/**
 	 * Retrieves a sequence of bits and save it into scalar value.
 	 * If the size of the return type exceeds number of available bits, the result is cropped.

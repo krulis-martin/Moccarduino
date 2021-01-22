@@ -196,7 +196,7 @@ public:
  * @param PROD_VALUE type of values being produced
  */
 template<typename VALUE, typename PROD_VALUE, typename TIME = logtime_t>
-class ForkedEventConsumer : EventConsumer<VALUE, TIME>
+class ForkedEventConsumer : public EventConsumer<VALUE, TIME>
 {
 private:
 	/**
@@ -208,16 +208,15 @@ protected:
 	virtual void doAddEvent(TIME time, VALUE value)
 	{
 		EventConsumer<VALUE, TIME>::doAddEvent(time, value);
-		if (mSproutConsumer != nullptr) {
-			mSproutConsumer->addEvent(time, (PROD_VALUE)value);
-		}
+
+		// Emitting events on the sprout must be defined in derived classes...
 	}
 
 	virtual void doAdvanceTime(TIME time)
 	{
 		EventConsumer<VALUE, TIME>::doAdvanceTime(time);
 		if (mSproutConsumer != nullptr) {
-			mSproutConsumer->doAdvanceTime(time);
+			mSproutConsumer->advanceTime(time);
 		}
 	}
 
@@ -225,7 +224,7 @@ protected:
 	{
 		EventConsumer<VALUE, TIME>::doClear();
 		if (mSproutConsumer != nullptr) {
-			mSproutConsumer->doClear();
+			mSproutConsumer->clear();
 		}
 	}
 

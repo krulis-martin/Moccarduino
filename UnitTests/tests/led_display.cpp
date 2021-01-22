@@ -1,4 +1,5 @@
 #include <led_display.hpp>
+#include <time_series.hpp>
 
 #include "../test.hpp"
 
@@ -15,9 +16,9 @@ private:
 	{
 		leds_t::state_t state(1);
 		std::size_t offset = 0;
-		for (auto&& d : digits) {
+		for (std::uint8_t d : digits) {
 			state.set(d, offset);
-			offset += 8;
+			offset += sizeof(d)*8;
 		}
 		return leds_t(state);
 	}
@@ -101,3 +102,50 @@ public:
 
 
 Led7SegInterpreterTest _led7SegInterpreterTest;
+
+
+
+class DemultiplexingTest : public MoccarduinoTest
+{
+public:
+	using leds_t = BitArray<4>;
+
+	DemultiplexingTest() : MoccarduinoTest("led_display/demultiplexing") {}
+
+	virtual void run() const
+	{
+		FutureTimeSeries<leds_t> input;
+		LedsEventsDemultiplexer<4> demuxer(20, 2);
+		TimeSeries<leds_t> output;
+
+		input.attachNextConsumer(demuxer);
+		demuxer.attachNextConsumer(output);
+
+		logtime_t ts = 1;
+
+		std::vector<leds_t> leds = { leds_t(OFF), leds_t(OFF), leds_t(OFF), leds_t(OFF) };
+		for (std::size_t i = 0; i < leds.size(); ++i) {
+			leds[i].set(ON, i, 1);
+		}
+
+		while (ts < 1000) {
+			input.addFutureEvent(ts++, leds[1]);
+			input.addFutureEvent(ts++, leds[2]);
+		}
+		while (ts < 2000) {
+			input.addFutureEvent(ts++, leds[0]);
+			input.addFutureEvent(ts++, leds[3]);
+		}
+
+		input.advanceTime(ts);
+
+		ASSERT_EQ(output.size(), 2, "two output events expected");
+		ASSERT_LT(output[0].time, 22, "first event not in time");
+		ASSERT_GT(output[1].time, 1000, "second event not in time");
+		ASSERT_LT(output[1].time, 1022, "second event not in time");
+		ASSERT_EQ(output[0].value.get<unsigned>(0), 0b1001, "first demuxed value is incorrect");
+		ASSERT_EQ(output[1].value.get<unsigned>(0), 0b0110, "second demuxed value is incorrect");
+	}
+};
+
+DemultiplexingTest _demultiplexingTest;

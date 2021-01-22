@@ -12,6 +12,9 @@
  */
 class FunshieldSimulationController
 {
+public:
+	using leds_display_t = LedDisplay<4>;
+	using seg_display_t = SerialSegLedDisplay<4>;
 private:
 	/**
 	 * Underlying arduino simulator used for lowlevel operations and code invocation.
@@ -27,6 +30,16 @@ private:
 	 * Shield independent LEDs pin references.
 	 */
 	std::vector<pin_t> mLedPins = { led1_pin, led2_pin, led3_pin, led4_pin };
+
+	/**
+	 * A collection of 4 LEDs (a simple display).
+	 */
+	leds_display_t mLeds;
+
+	/**
+	 * Four-digit 7-seg LED display controlled by a serial line and a shift register.
+	 */
+	seg_display_t mSegDisplay;
 
 	// Simulation parameters
 
@@ -62,6 +75,10 @@ public:
 		mArduino.registerPin(latch_pin, OUTPUT);
 		mArduino.registerPin(clock_pin, OUTPUT);
 		mArduino.registerPin(data_pin, OUTPUT);
+
+		// attach displays (event consumers)
+		mLeds.attachToSimulation(mArduino, mLedPins);
+		mSegDisplay.attachToSimulation(mArduino, data_pin, clock_pin, latch_pin);
 	}
 
 	// accessor for underlying arduino simulator
@@ -74,6 +91,38 @@ public:
 	const ArduinoSimulationController& getArduino() const
 	{
 		return mArduino;
+	}
+
+	/**
+	 * Get LEDs grouped into simple display object.
+	 */
+	leds_display_t& getLeds()
+	{
+		return mLeds;
+	}
+
+	/**
+	 * Get LEDs grouped into simple display object.
+s	 */
+	const leds_display_t& getLeds() const
+	{
+		return mLeds;
+	}
+
+	/**
+	 * Get an object representing 7-seg LED display.
+	 */
+	seg_display_t getSegDisplay()
+	{
+		return mSegDisplay;
+	}
+
+	/**
+	 * Get an object representing 7-seg LED display.
+	 */
+	const seg_display_t getSegDisplay() const
+	{
+		return mSegDisplay;
 	}
 
 	/**
@@ -132,33 +181,7 @@ public:
 	}
 
 	/**
-	 * Get current status of given independent LED.
-	 * @param led zero-based index (0 is led1)
-	 * @return true if the LED is lit, false when dimmed
-	 */
-	bool getLedStatus(std::size_t led) const
-	{
-		return mArduino.getPinValue(mLedPins[led]) == LOW; // LOW = LED is lit
-	}
-
-	/**
-	 * Get aggregated state of all independent LEDs 
-	 * @return byte containing LED states as individual bits (bit 0 ~ LED 0, 1 = LED is lit)
-	 */
-	unsigned int getAllLedsStatus() const
-	{
-		unsigned int res = 0;
-		for (std::size_t i = 0; i < mLedPins.size(); ++i) {
-			res = res << 1;
-			if (getLedStatus(i)) {
-				res |= 1;
-			}
-		}
-		return res;
-	}
-
-	/**
-	 *
+	 * TODO
 	 */
 	void runLoop(logtime_t timeLimit = 1000000, std::size_t countLimit = ~(std::size_t)0)
 	{

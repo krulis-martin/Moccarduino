@@ -305,7 +305,7 @@ private:
 		state_t newState(OFF);
 		for (std::size_t i = 0; i < LEDS; ++i) {
 			if (mActiveTimes[i] >= mThreshold) {
-				newState.setBit(ON, i); // the LED has been ON for sufficient amount of time
+				newState.set(ON, i, 1); // the LED has been ON for sufficient amount of time
 			}
 			mActiveTimes[i] = 0;
 		}
@@ -319,7 +319,7 @@ private:
 	void accumulateActiveTimes(logtime_t dt)
 	{
 		for (std::size_t i = 0; i < LEDS; ++i) {
-			if (mLastState.getBit(i) == ON) {
+			if (mLastState[i] == ON) {
 				mActiveTimes[i] += dt;
 			}
 		}
@@ -346,7 +346,7 @@ protected:
 				mLastDemuxedState = demuxedState;
 				if (this->nextConsumer() != nullptr) {
 					// emit event for following consumers
-					this->nextConsumer()->addEvent(mNextMarker, demuxState);
+					this->nextConsumer()->addEvent(mNextMarker, demuxedState);
 				}
 				mNextMarker += mTimeWindow; // time window shifts one place
 			}
@@ -384,7 +384,7 @@ public:
 		mLastDemuxedState(OFF)
 	{
 		if (mTimeWindow == 0) {
-
+			throw std::runtime_error("Demultiplexing time window must be greater than 0.");
 		}
 
 		if (mThreshold == 0 || mThreshold > mTimeWindow) {
@@ -434,9 +434,9 @@ protected:
 		// update the state
 		auto idx = it->second;
 		bool value = state.value == ON ? ON : OFF;
-		if (mState.getBit(idx) != value) {
+		if (mState[idx] != value) {
 			// the state actually changes
-			mState.setBit(value, idx);
+			mState.set(value, idx, 1);
 			if (this->sproutConsumer() != nullptr) {
 				this->sproutConsumer()->addEvent(time, mState);
 			}
