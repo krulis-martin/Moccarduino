@@ -17,8 +17,8 @@ template<int N>
 class BitArray
 {
 private:
-	template<int N>
-	friend std::ostream& operator<<(std::ostream& os, const BitArray<N>& ba);
+	template<int NN>
+	friend std::ostream& operator<<(std::ostream& os, const BitArray<NN>& ba);
 
 	/**
 	 * Internal data are stored in fixed-sized array of bytes (the most compact way).
