@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <limits>
 #include <cstdint>
+#include <cmath>
 
 using logtime_t = std::uint64_t;
 
@@ -487,7 +488,7 @@ public:
 
 		double count = (double)(range.length() - 1);
 		double mean = (double)deltas / count;
-		return sqrt(((double)squareDeltas / count) - (mean * mean));	// E(X^2) - (EX)^2;
+		return std::sqrt(((double)squareDeltas / count) - (mean * mean));	// E(X^2) - (EX)^2;
 	}
 
 	/**
