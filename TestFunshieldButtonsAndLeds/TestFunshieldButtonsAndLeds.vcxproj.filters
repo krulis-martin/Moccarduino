@@ -14,24 +14,19 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="shared">
-      <UniqueIdentifier>{6ed219da-4456-4e49-95a4-14671492e879}</UniqueIdentifier>
+      <UniqueIdentifier>{9a96613c-459b-43cd-a08a-44f13d085ca4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="test_blink_led_basic_main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="tested_code_wrapper.cpp">
+    <ClCompile Include="test_funshield_buttons_leds_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\interface.cpp">
       <Filter>shared</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="blink.ino">
+    <ClCompile Include="tested_code_wrapper.cpp">
       <Filter>Source Files</Filter>
-    </None>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\constants.hpp">
@@ -41,6 +36,9 @@
       <Filter>shared</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\funshield.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\helpers.hpp">
       <Filter>shared</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\interface.hpp">
@@ -58,8 +56,10 @@
     <ClInclude Include="..\shared\time_series.hpp">
       <Filter>shared</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\helpers.hpp">
-      <Filter>shared</Filter>
-    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="buttons_leds.ino">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

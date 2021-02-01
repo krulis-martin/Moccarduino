@@ -17,7 +17,7 @@ The most important part of the code is in `shared` directory. The surrounding pr
 - `constants.hpp` holds all constants and macros as defined in Arduino IDE
 - `interface.hpp`, `interface.cpp` implements the low-level API for the tested Arduino code
 - `funshield.h` holds additional constants needed for the Funshield (this header is given to students for development)
-- `helpers.hpp` gathers all helper class (`BitArray`, `ShiftRegister`)
+- `helpers.hpp` gathers all helper classes (`BitArray`, `ShiftRegister`)
 - `time_series.hpp` is generalized implementation of sequence of events (used for various purposes, including analytical functions useful for behavioral assertions)
 - `emulator.hpp` implements the actual state of the arduino board and provides object oriented interface (wich is recalled from C `interface`)
 - `simulation.hpp` uses the `emulator.hpp` and implements controller for the simulation

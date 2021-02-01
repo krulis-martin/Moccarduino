@@ -34,3 +34,6 @@ jobs:
     - name: Simple LED blinking test
       run: ./TestBlinkLedBasic.exe
       working-directory: bin
+    - name: Funshield buttons and LEDs 
+      run: ./TestFunshieldButtonsAndLeds.exe
+      working-directory: bin

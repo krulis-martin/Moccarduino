@@ -326,21 +326,33 @@ private:
 		}
 	}
 
-protected:
-	void doAddEvent(logtime_t time, state_t state) override
+	/**
+	 * Returns true if currently a event processing window is open.
+	 */
+	bool isWindowOpen() const
 	{
-		doAdvanceTime(time); // the interesting stuff happens there
-		mLastState = state;
+		return this->mLastTime < mNextMarker;
 	}
 
-	void doAdvanceTime(logtime_t time)
+	/**
+	 * Update or even close currently opened window usign given timestamp.
+	 * @param time actual time (given either by advance time or when event is added)
+	 */
+	void updateOpenedWindow(logtime_t time)
 	{
-		if (time >= mNextMarker && this->mLastTime < mNextMarker) {
+		if (!isWindowOpen()) {
+			return;
+		}
+
+		if (time >= mNextMarker) {
+			// time has passed the closing marker...
+
 			// traliling time fragment needs to be accumulated
 			accumulateActiveTimes(mNextMarker - this->mLastTime);
+
 			this->mLastTime = mNextMarker; // everyting up to the marker is resolved
 
-			// process the last open window
+			// process the last opened window
 			auto demuxedState = demuxState(); // assemble new demuxed state from the window
 			if (mLastDemuxedState != demuxedState) {
 				// demuxed state has changed
@@ -351,15 +363,41 @@ protected:
 				}
 				mNextMarker += mTimeWindow; // time window shifts one place
 			}
+			else {
+				if (this->nextConsumer() != nullptr) {
+					// no event -> just advance time for following consumers
+					this->nextConsumer()->advanceTime(mNextMarker);
+				}
+			}
 		}
 
+		// Yes, there is no "else" here. The previous block may have shifted the window,
+		// so we need to update it (unless the time was advanced much further into the future).
+
 		if (time < mNextMarker) {
-			// update current window
+			// update the current window
 			accumulateActiveTimes(time - this->mLastTime);
 		}
-		else {
-			// open new window starting now
+	}
+
+
+protected:
+	void doAddEvent(logtime_t time, state_t state) override
+	{
+		updateOpenedWindow(time); // update, possibly close current window
+		mLastState = state;
+		if (!isWindowOpen()) {
+			// the event triggers opening of a new window
 			mNextMarker = time + mTimeWindow;
+		}
+	}
+
+	void doAdvanceTime(logtime_t time)
+	{
+		updateOpenedWindow(time); // update, possibly close current window
+		if (!isWindowOpen() && this->nextConsumer() != nullptr) {
+			// if no window is open, we can pass time advances as usual
+			this->nextConsumer()->advanceTime(time);
 		}
 	}
 
@@ -377,7 +415,7 @@ public:
 	 * @param timeWindow period in which the changes are merged together and evaluated by thresholding
 	 * @param threshold how long (inside a time window) a LED needs to be on in given period of time to be considered lit
 	 */
-	LedsEventsDemultiplexer(logtime_t timeWindow = 50000, logtime_t threshold = 5000) :
+	LedsEventsDemultiplexer(logtime_t timeWindow, logtime_t threshold) :
 		mTimeWindow(timeWindow),
 		mThreshold(threshold),
 		mNextMarker(0),
@@ -395,6 +433,120 @@ public:
 		mActiveTimes.fill(0);
 	}
 
+	// Default timeWindow is 50ms and default threshold is 10% of the time window
+	LedsEventsDemultiplexer(logtime_t timeWindow = 50000) : LedsEventsDemultiplexer(timeWindow, timeWindow / 10) {}
+};
+
+
+/**
+ * TODO
+ */
+template<int LEDS>
+class LedsEventsAggregator : public EventConsumer<BitArray<LEDS>>
+{
+public:
+	using state_t = BitArray<LEDS>;
+
+private:
+	/**
+	 * Time window for demultiplexing.
+	 */
+	logtime_t mTimeWindow;
+
+	/**
+	 * Time stamp where currently opened time window should be closed.
+	 */
+	logtime_t mNextMarker;
+
+	/**
+	 * Last encountered state set by addEvent().
+	 */
+	state_t mLastState;
+
+	/**
+	 * Last state emitted to the next consumer.
+	 */
+	state_t mLastEmittedState;
+
+	/**
+	 * Returns true if currently a event processing window is open.
+	 */
+	bool isWindowOpen() const
+	{
+		return this->mLastTime < mNextMarker;
+	}
+
+	/**
+	 * Update or even close currently opened window usign given timestamp.
+	 * @param time actual time (given either by advance time or when event is added)
+	 */
+	void updateOpenedWindow(logtime_t time)
+	{
+		if (isWindowOpen() && time >= mNextMarker) {
+			// time to shut the window, there is a draft here...
+
+			this->mLastTime = mNextMarker; // everyting up to the marker is resolved
+
+			// process the last opened window
+			if (mLastState != mLastEmittedState) {
+				mLastEmittedState = mLastState;
+				if (this->nextConsumer() != nullptr) {
+					// emit event for following consumers
+					this->nextConsumer()->addEvent(mNextMarker, mLastEmittedState);
+				}
+				mNextMarker += mTimeWindow; // time window shifts one place
+			}
+			else if (this->nextConsumer() != nullptr) {
+				// advance time for the following consumer
+				this->nextConsumer()->advanceTime(mNextMarker);
+			}
+		}
+	}
+
+
+protected:
+	void doAddEvent(logtime_t time, state_t state) override
+	{
+		updateOpenedWindow(time); // update, possibly close current window
+		mLastState = state;
+		if (!isWindowOpen()) {
+			// the event triggers opening of a new window
+			mNextMarker = time + mTimeWindow;
+		}
+	}
+
+	void doAdvanceTime(logtime_t time)
+	{
+		updateOpenedWindow(time); // update, possibly close current window
+		if (!isWindowOpen() && this->nextConsumer() != nullptr) {
+			// if no window is open, we can pass time advances as usual
+			this->nextConsumer()->advanceTime(time);
+		}
+	}
+
+	void doClear() override
+	{
+		mNextMarker = this->mLastTime;
+		mLastState.fill(OFF);
+		mLastEmittedState.fill(OFF);
+		EventConsumer<BitArray<LEDS>>::doClear();
+	}
+
+public:
+	/**
+	 * @param timeWindow period in which the changes are merged together and evaluated by thresholding
+	 * @param threshold how long (inside a time window) a LED needs to be on in given period of time to be considered lit
+	 */
+	LedsEventsAggregator(logtime_t timeWindow = 50000) :
+		mTimeWindow(timeWindow),
+		mNextMarker(0),
+		mLastState(OFF),
+		mLastEmittedState(OFF)
+	{
+		if (mTimeWindow == 0) {
+			throw std::runtime_error("Aggregator time window must be greater than 0.");
+		}
+	}
 };
 
 

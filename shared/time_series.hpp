@@ -314,7 +314,7 @@ public:
 
 	public:
 		Range(std::size_t start = 0, std::size_t end = ~(std::size_t)0)
-			: mStart(std::min(start, end)), mEnd(std::max(start,end))
+			: mStart(std::min(start, end)), mEnd(std::max(start, end))
 		{}
 
 		std::size_t start() const
@@ -356,7 +356,7 @@ public:
 
 		inline bool overlap(const Range& r) const
 		{
-			return mStart < r.mEnd && mEnd > r.mStart;
+			return mStart < r.mEnd&& mEnd > r.mStart;
 		}
 	};
 
@@ -457,10 +457,18 @@ public:
 	}
 
 	/**
-	 * Examine event time stamps in given range and return the variance (std. dev ^2)
+	 * Examine event time stamps of the entire series and return the mean delay between subsequent events.
+	 */
+	double getDeltasMean() const
+	{
+		return getDeltasMean(Range(0, mEvents.size()));
+	}
+
+	/**
+	 * Examine event time stamps in given range and return the std. deviation
 	 * of delays between subsequent events.
 	 */
-	double getDeltasVariance(const Range& range) const
+	double getDeltasDeviation(const Range& range) const
 	{
 		if (range.length() < 2) {
 			return 0.0;
@@ -479,7 +487,16 @@ public:
 
 		double count = (double)(range.length() - 1);
 		double mean = (double)deltas / count;
-		return ((double)squareDeltas / count) - (mean * mean);	// E(X^2) - (EX)^2;
+		return sqrt(((double)squareDeltas / count) - (mean * mean));	// E(X^2) - (EX)^2;
+	}
+
+	/**
+	 * Examine event time stamps of the entire series and return the std. deviation
+	 * of delays between subsequent events.
+	 */
+	double getDeltasDeviation() const
+	{
+		return getDeltasDeviation(Range(0, mEvents.size()));
 	}
 
 	/**

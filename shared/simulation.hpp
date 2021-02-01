@@ -7,6 +7,12 @@
 #include <string>
 #include <algorithm>
 
+
+/**
+ * Handles arduino simulation using an instance of arduino emulator (which holds the state).
+ * Controller basically provides external interface for emulator which for the purposes
+ * of testing the implementation.
+ */
 class ArduinoSimulationController
 {
 private:
@@ -120,16 +126,6 @@ public:
 	}
 
 	/**
-	 * Forceufly set an explicit value to a pin.
-	 * TODO - perhaps we should remove this? Its too obscure.
-	 */
-	void setPinValue(pin_t pin, int value)
-	{
-		auto& arduinoPin = mEmulator.getPin(pin);
-		arduinoPin.mState.value = value;
-	}
-
-	/**
 	 * Enqueue a change of given pin using pin events (works only on input pins).
 	 * The event is scheduled at current time (with optional delay).
 	 */
@@ -179,8 +175,21 @@ public:
 	void runMultipleLoops(std::size_t count = 1, logtime_t loopDelay = 1)
 	{
 		while (count > 0) {
-			runSingleLoop();
+			runSingleLoop(loopDelay);
 			--count;
+		}
+	}
+
+	/**
+	 * Run loops for given time period.
+	 * @param period How long whould we loop.
+	 * @param loopDelay How much is internal clock advanced after every loop.
+	 */
+	void runLoopsForPeriod(logtime_t period, logtime_t loopDelay = 1)
+	{
+		logtime_t endTime = getCurrentTime() + period;
+		while (getCurrentTime() < endTime) {
+			runSingleLoop(loopDelay);
 		}
 	}
 };

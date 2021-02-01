@@ -149,3 +149,56 @@ public:
 };
 
 DemultiplexingTest _demultiplexingTest;
+
+
+
+class DemultiplexingTest2 : public MoccarduinoTest
+{
+public:
+	using leds_t = BitArray<4>;
+
+	DemultiplexingTest2() : MoccarduinoTest("led_display/demultiplexing2") {}
+
+	virtual void run() const
+	{
+		FutureTimeSeries<leds_t> input;
+		LedsEventsDemultiplexer<4> demuxer(10000);
+		LedsEventsAggregator<4> aggregator(50000);
+		TimeSeries<leds_t> output;
+
+		input.attachNextConsumer(demuxer);
+		demuxer.attachNextConsumer(aggregator);
+		aggregator.attachNextConsumer(output);
+
+		std::size_t steps = 16;
+		logtime_t ts = 49000;
+
+		leds_t leds(OFF);
+		for (std::size_t activeLed = 0; activeLed < steps; ++activeLed) {
+			while (ts < (activeLed + 1) * 1000000) {
+				// set all leds dark
+				for (std::size_t i = 0; i < 4; ++i) {
+					leds.set<int>(OFF, i, 1);
+					input.addFutureEvent(ts, leds);
+					ts += 100;
+				}
+				// set active LED on
+				leds.set<int>(ON, (activeLed % 4), 1);
+				input.addFutureEvent(ts, leds);
+				ts += 3000;
+			}
+			ts += 100;
+		}
+
+		input.advanceTime(ts);
+
+		ASSERT_EQ(output.size(), steps, "");
+		for (std::size_t i = 0; i < steps; ++i) {
+			leds_t correct(OFF);
+			correct.set<int>(ON, (i % 4), 1);
+			ASSERT_EQ(output[i].value.get<unsigned>(0), correct.get<unsigned>(0), "");
+		}
+	}
+};
+
+DemultiplexingTest2 _demultiplexingTest2;

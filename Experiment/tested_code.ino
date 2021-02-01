@@ -1,13 +1,14 @@
-// the setup function runs once when you press reset or power the board
+#include <funshield.h>
+
+constexpr int leds[] = {led1_pin, led2_pin, led3_pin, led4_pin};
+const int ledsCount = 4;
+
 void setup() {
-  // initialize digital pin LED_BUILTIN as an output.
-  pinMode(LED_BUILTIN, OUTPUT);
+  for (int i = 0; i < ledsCount; i++) {
+    pinMode(leds[i], OUTPUT);
+    digitalWrite(leds[i], OFF);
+  }
 }
 
-// the loop function runs over and over again forever
 void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(1000);                       // wait for a second
-  digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-  delay(1000);                       // wait for a second
 }

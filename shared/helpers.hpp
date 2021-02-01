@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cstdint>
+#include <iostream>
 
 
 /**
@@ -16,6 +17,9 @@ template<int N>
 class BitArray
 {
 private:
+	template<int N>
+	friend std::ostream& operator<<(std::ostream& os, const BitArray<N>& ba);
+
 	/**
 	 * Internal data are stored in fixed-sized array of bytes (the most compact way).
 	 */
@@ -137,6 +141,14 @@ public:
 	}
 };
 
+template<int N>
+std::ostream& operator<<(std::ostream& os, const BitArray<N>& ba)
+{
+	for (std::size_t i = 0; i < N; ++i) {
+		os << (ba[i] ? 1 : 0);
+	}
+	return os;
+}
 
 /**
  * Shift register simulator of fixed size.

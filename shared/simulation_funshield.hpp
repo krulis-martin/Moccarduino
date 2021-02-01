@@ -7,8 +7,7 @@
 #include <funshield.h>
 
 /**
- * TODO -- needs fixing 
- * Simulation controller for funshield which is attached to Arduino simulator.
+ * Simulation controller for the funshield which is attached to Arduino simulator.
  */
 class FunshieldSimulationController
 {
@@ -44,11 +43,6 @@ private:
 	// Simulation parameters
 
 	/**
-	 * Loop invocation overhead (how much is the time advanced after every loop).
-	 */
-	logtime_t mLoopDelay;
-
-	/**
 	 * When button bouncing (jitter) is simulated, this is the delay between two state changes.
 	 * If zero, no bouncing is employed.
 	 */
@@ -60,7 +54,6 @@ public:
 	 */
 	FunshieldSimulationController(ArduinoSimulationController& arduino) :
 		mArduino(arduino),
-		mLoopDelay(100),
 		mButtonBouncingDelay(0) // 0 = disabled
 	{
 		// initialize pins
@@ -175,21 +168,9 @@ s	 */
 	 */
 	void buttonClick(std::size_t button, logtime_t duration = 100000, logtime_t afterDelay = 0)
 	{
-		bool bouncing = mButtonBouncingDelay * 10 <= duration;
+		bool bouncing = mButtonBouncingDelay > 0 && mButtonBouncingDelay * 10 <= duration;
 		buttonDown(button, afterDelay, bouncing);
 		buttonUp(button, afterDelay + duration, bouncing);
-	}
-
-	/**
-	 * TODO
-	 */
-	void runLoop(logtime_t timeLimit = 1000000, std::size_t countLimit = ~(std::size_t)0)
-	{
-		for (auto&& ledPin : mLedPins) {
-			mArduino.clearPinEvents(ledPin);
-		}
-
-		mArduino.runSingleLoop(mLoopDelay);
 	}
 };
 

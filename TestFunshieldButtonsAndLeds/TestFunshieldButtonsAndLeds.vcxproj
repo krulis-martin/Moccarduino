@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{2b911c49-cfe6-4b9f-a536-4ba1320b1986}</ProjectGuid>
-    <RootNamespace>TestBlinkLedBasic</RootNamespace>
+    <ProjectGuid>{9c0a9e49-978a-4c98-a67d-14e95791f200}</ProjectGuid>
+    <RootNamespace>TestFunshieldButtonsAndLeds</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -150,10 +150,7 @@
   <ItemGroup>
     <ClCompile Include="..\shared\interface.cpp" />
     <ClCompile Include="tested_code_wrapper.cpp" />
-    <ClCompile Include="test_blink_led_basic_main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="blink.ino" />
+    <ClCompile Include="test_funshield_buttons_leds_main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\constants.hpp" />
@@ -165,6 +162,9 @@
     <ClInclude Include="..\shared\simulation.hpp" />
     <ClInclude Include="..\shared\simulation_funshield.hpp" />
     <ClInclude Include="..\shared\time_series.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="buttons_leds.ino" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
