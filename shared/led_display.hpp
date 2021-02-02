@@ -439,7 +439,11 @@ public:
 
 
 /**
- * TODO
+ * Another filter typically used in combination with demultiplexer. It suppresses change events in rapid succession.
+ * That might be necessary in situations when demuxer is doing its job, but could not distinguis between actual state
+ * changes.
+ * Therefore the recommended setup is to use demultiplexer with smaller window (e.g., 10ms) followed by aggregator with
+ * larger window (50-100ms).
  */
 template<int LEDS>
 class LedsEventsAggregator : public EventConsumer<BitArray<LEDS>>
@@ -449,7 +453,7 @@ public:
 
 private:
 	/**
-	 * Time window for demultiplexing.
+	 * Time window for aggregation.
 	 */
 	logtime_t mTimeWindow;
 
@@ -535,7 +539,6 @@ protected:
 public:
 	/**
 	 * @param timeWindow period in which the changes are merged together and evaluated by thresholding
-	 * @param threshold how long (inside a time window) a LED needs to be on in given period of time to be considered lit
 	 */
 	LedsEventsAggregator(logtime_t timeWindow = 50000) :
 		mTimeWindow(timeWindow),
