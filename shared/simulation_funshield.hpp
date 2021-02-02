@@ -105,7 +105,7 @@ s	 */
 	/**
 	 * Get an object representing 7-seg LED display.
 	 */
-	seg_display_t getSegDisplay()
+	seg_display_t& getSegDisplay()
 	{
 		return mSegDisplay;
 	}
@@ -113,7 +113,7 @@ s	 */
 	/**
 	 * Get an object representing 7-seg LED display.
 	 */
-	const seg_display_t getSegDisplay() const
+	const seg_display_t& getSegDisplay() const
 	{
 		return mSegDisplay;
 	}

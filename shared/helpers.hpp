@@ -213,4 +213,11 @@ public:
 };
 
 
+template<typename T>
+bool almostEquals(T a, T b, T giveOrTake)
+{
+	return a + giveOrTake >= b && b + giveOrTake >= a;
+}
+
+
 #endif

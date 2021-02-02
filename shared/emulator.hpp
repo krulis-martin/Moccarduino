@@ -338,8 +338,8 @@ public:
 		mEnableShiftIn(true),
 		mEnableTone(true),
 		mEnableNoTone(true),
-		mPinReadDelay(100),
-		mPinWriteDelay(100),
+		mPinReadDelay(20),
+		mPinWriteDelay(20),
 		mPinSetModeDelay(100)
 	{}
 

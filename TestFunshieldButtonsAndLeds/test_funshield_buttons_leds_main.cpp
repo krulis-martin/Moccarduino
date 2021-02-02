@@ -62,10 +62,6 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        for (std::size_t i = 0; i < events.size(); ++i) {
-            // std::cout << events[i].time / 1000 << " " << events[i].value << std::endl;
-        }
-
         auto mean = events.getDeltasMean();
         auto deviation = events.getDeltasDeviation();
         bool ok = true;

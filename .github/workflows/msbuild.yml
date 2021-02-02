@@ -37,3 +37,6 @@ jobs:
     - name: Funshield buttons and LEDs 
       run: ./TestFunshieldButtonsAndLeds.exe
       working-directory: bin
+    - name: Funshield buttons and LEDs 
+      run: ./TestFunshieldSegDisplay.exe
+      working-directory: bin
