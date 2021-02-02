@@ -1,10 +1,10 @@
 #ifndef MOCCARDUINO_SHARED_SIMULATION_FUNSHIELD_HPP
 #define MOCCARDUINO_SHARED_SIMULATION_FUNSHIELD_HPP
 
-#include <simulation.hpp>
-#include <led_display.hpp>
-#include <constants.hpp>
-#include <funshield.h>
+#include "simulation.hpp"
+#include "led_display.hpp"
+#include "constants.hpp"
+#include "funshield.h"
 
 /**
  * Simulation controller for the funshield which is attached to Arduino simulator.

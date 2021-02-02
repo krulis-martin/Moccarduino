@@ -1,8 +1,8 @@
 #ifndef MOCCARDUINO_SHARED_EMULATOR_HPP
 #define MOCCARDUINO_SHARED_EMULATOR_HPP
 
-#include <time_series.hpp>
-#include <constants.hpp>
+#include "time_series.hpp"
+#include "constants.hpp"
 
 #include <deque>
 #include <map>

@@ -1,6 +1,6 @@
-#include <interface.hpp>
+#include "interface.hpp"
 
-#include <funshield.h>
+#include "funshield.h"
 
 #include <stdlib.h>
 #include <math.h>

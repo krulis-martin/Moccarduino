@@ -1,8 +1,8 @@
 /**
  * Simple test applied on the standard LED blink example from Arduino IDE codebase.
  */
-#include <simulation.hpp>
-#include <emulator.hpp>
+#include "simulation.hpp"
+#include "emulator.hpp"
 
 #include <iostream>
 
@@ -32,7 +32,6 @@ int main(int argc, char* argv[])
         auto blinkCount = range.length() / 2;
         auto mean = events.getDeltasMean(range);
         auto deviation = events.getDeltasDeviation(range);
-        std::cout << "LED blinked " << blinkCount << " times with avg. period " << (mean / 500000.0) << "s and deviation " << deviation << std::endl;
 
         if (blinkCount < 49 || blinkCount > 50) {
             std::cerr << "Number of blinks expected was 49 or 50." << std::endl;
@@ -40,11 +39,13 @@ int main(int argc, char* argv[])
         }
 
         if (mean < 990000 || mean > 1010000) {
+            std::cerr << "LED blinked " << blinkCount << " times with avg. period " << (mean / 500000.0) << "s and deviation " << deviation << std::endl;
             std::cerr << "Average period is off by more than 10% of expected value." << std::endl;
             return 1;
         }
 
         if (deviation > 1) {
+            std::cerr << "LED blinked " << blinkCount << " times with avg. period " << (mean / 500000.0) << "s and deviation " << deviation << std::endl;
             std::cerr << "Deviation is too high, the blinking is not regular enough." << std::endl;
             return 1;
         }

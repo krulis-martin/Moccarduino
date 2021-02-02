@@ -1,7 +1,7 @@
 #ifndef MOCCARDUINO_SHARED_SIMULATION_HPP
 #define MOCCARDUINO_SHARED_SIMULATION_HPP
 
-#include <emulator.hpp>
+#include "emulator.hpp"
 
 #include <map>
 #include <string>

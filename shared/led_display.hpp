@@ -1,11 +1,11 @@
 #ifndef MOCCARDUINO_SHARED_LED_DISPLAY_HPP
 #define MOCCARDUINO_SHARED_LED_DISPLAY_HPP
 
-#include <simulation.hpp>
-#include <emulator.hpp>
-#include <helpers.hpp>
-#include <constants.hpp>
-#include <funshield.h>
+#include "simulation.hpp"
+#include "emulator.hpp"
+#include "helpers.hpp"
+#include "constants.hpp"
+#include "funshield.h"
 
 #include <string>
 #include <deque>
