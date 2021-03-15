@@ -213,6 +213,9 @@ public:
 };
 
 
+/**
+ * Helper function that compares two numbers with given tolerance.
+ */
 template<typename T>
 bool almostEquals(T a, T b, T giveOrTake)
 {
