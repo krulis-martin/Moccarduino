@@ -151,6 +151,7 @@
     <ClCompile Include="tests\helpers.cpp" />
     <ClCompile Include="tests\led_display.cpp" />
     <ClCompile Include="tests\simulation.cpp" />
+    <ClCompile Include="tests\time_series.cpp" />
     <ClCompile Include="unit_tests_main.cpp" />
   </ItemGroup>
   <ItemGroup>

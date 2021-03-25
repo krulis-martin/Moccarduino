@@ -273,7 +273,7 @@ public:
 
 
 /**
- * This is de-facto a queue of time-marked events. It provides a similar interface like deque
+ * A container of time-marked events. It provides a similar interface like vector
  * (which is also used as internal storage) and additionaly some analytical functions that
  * might help with behavioral assertions.
  * @tparam VALUE the inner value of each event (e.g., a state of a pin)
@@ -394,6 +394,11 @@ public:
 	}
 
 	const Event& operator[](std::size_t idx) const
+	{
+		return mEvents[idx];
+	}
+
+	const Event& at(std::size_t idx) const
 	{
 		return mEvents[idx];
 	}
@@ -577,6 +582,57 @@ public:
 		}
 
 		return bestFit;
+	}
+
+	/**
+	 * Compare this time series with another one of the same type. Return total amount of discrete time
+	 * (from given range) the values from events differ.
+	 * @param timeSeries another time series object with which this is compared
+	 * @param range time range of interest
+	 * @param initialValue the value expected (for both series) before the first event
+	 */
+	TIME compare(const TimeSeries<VALUE, TIME> &timeSeries, const Range &range, const VALUE& initialValue) const
+	{
+		TIME res = 0;
+		
+		const TimeSeries<VALUE, TIME>* ts[]{ this, &timeSeries };
+		VALUE lastValue[]{ initialValue, initialValue };
+		std::size_t idx[]{ 0, 0 };
+
+		// skip parts of time series which are before the range (update starting values)
+		for (std::size_t t = 0; t < 2; ++t) {
+			while (idx[t] < ts[t]->size() && ts[t]->at(idx[t]).time <= range.start()) {
+				lastValue[t] = ts[t]->at(idx[t]).value;
+				++idx[t];
+			}
+		}
+
+		TIME lastTime = range.start();
+		while (lastTime < range.end() && (idx[0] < ts[0]->size() || idx[1] < ts[1]->size())) {
+			// index of the series which has next event sooner
+			logtime_t nextTs[2];
+			for (std::size_t t = 0; t < 2; ++t) {
+				nextTs[t] = idx[t] < ts[t]->size() ? ts[t]->at(idx[t]).time : std::numeric_limits<logtime_t>::max();
+			}
+			std::size_t next = nextTs[0] <= nextTs[1] ? 0 : 1;
+
+			if (lastValue[0] != lastValue[1]) {
+				// during the time period from last time to now the values were different -> add this period to accumulator
+				res += std::min(nextTs[next], range.end()) - lastTime;
+			}
+
+			// update the local states
+			lastTime = nextTs[next];
+			lastValue[next] = ts[next]->at(idx[next]).value;
+			++idx[next];
+		}
+
+		// if the values differ at the end, tak it also into account
+		if (lastTime < range.end() && lastValue[0] != lastValue[1]) {
+			res += range.end() - lastTime;
+		}
+
+		return res;
 	}
 };
 
