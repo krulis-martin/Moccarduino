@@ -28,7 +28,8 @@ void loop() {
 
   if (lastButton == 0) {
     digitalWrite(latch_pin, LOW);
-    shiftOut(data_pin, clock_pin, MSBFIRST, 0b10001000); // a
+    byte a = 0b10001000;
+    shiftOut(data_pin, clock_pin, MSBFIRST, a); // a
     shiftOut(data_pin, clock_pin, MSBFIRST, 1);
     digitalWrite(latch_pin, HIGH);
   
