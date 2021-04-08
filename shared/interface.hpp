@@ -3,6 +3,10 @@
 
 #include "constants.hpp"
 
+#include <algorithm>
+#include <cmath>
+
+
 // Pins
 
 /**
@@ -150,5 +154,8 @@ bool isPunct(int c);
 bool isSpace(int c);
 bool isUpperCase(int c);
 bool isWhitespace(int c);
+
+using std::min;
+using std::max;
 
 #endif
