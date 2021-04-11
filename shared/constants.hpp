@@ -12,7 +12,7 @@
 
 #define INPUT 0x0
 #define OUTPUT 0x1
-#define INPUT_PULLUP 0x2
+#define INPUT_PULLUP 0x0 // this is actually 0x2, but we do not want to distinguish INPUT and INPUT_PULLUP at the moment
 
 #define PI 3.1415926535897932384626433832795
 #define HALF_PI 1.5707963267948966192313216916398
