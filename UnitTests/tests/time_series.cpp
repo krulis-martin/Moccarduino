@@ -5,6 +5,52 @@
 #include <functional>
 #include <cstdint>
 
+class TimeSeriesFindSelectedSubseqTest : public MoccarduinoTest
+{
+private:
+	template<typename T>
+	void fillTs(const std::vector<T> values, FutureTimeSeries<T>& ts, logtime_t period = 100) const
+	{
+		logtime_t time = 0;
+		for (auto val: values) {
+			time += period;
+			ts.addFutureEvent(time, val);
+		}
+	}
+
+	void test(const std::vector<int> haystack, const std::vector<int> needle, const std::vector<std::size_t> expectedIndices) const
+	{
+		FutureTimeSeries<int> ts1, ts2;
+		fillTs(haystack, ts1);
+		fillTs(needle, ts2);
+		std::vector<std::size_t> mapping;
+		bool res = ts1.findSelectedSubsequence(ts2, mapping);
+		ASSERT_EQ(res, needle.size() == expectedIndices.size(), "returned value");
+		ASSERT_EQ(mapping.size(), expectedIndices.size(), "mapping size");
+		if (mapping.size() == expectedIndices.size()) {
+			for (std::size_t i = 0; i < mapping.size(); ++i) {
+				ASSERT_EQ(mapping[i], expectedIndices[i], "expected index mapping");
+			}
+		}
+	}
+
+public:
+	TimeSeriesFindSelectedSubseqTest() : MoccarduinoTest("time-series/findSelectedSubsequence") {}
+
+	virtual void run() const
+	{
+		test({ 10, 20, 30 }, { 10, 20, 30 }, { 0, 1, 2 });
+		test({ 10, 20, 30, 40, 50, 60, 70 }, { 20, 50, 60 }, { 1, 4, 5 });
+		test({ 10, 20, 30 }, { 30, 40, 50 }, { 2 });
+		test({ 10, 20, 30 }, { 40, 50, 60 }, {});
+		test({ 10, 0, 10, 20, 20, 30, 31, 30, 40, 70, 40 }, { 10, 20, 30, 40 }, { 0, 3, 5, 8 });
+	}
+};
+
+
+TimeSeriesFindSelectedSubseqTest   _timeSeriesFindSelectedSubseqTest;
+
+
 class TimeSeriesCompareTest : public MoccarduinoTest
 {
 private:
