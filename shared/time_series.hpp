@@ -584,6 +584,43 @@ public:
 		return bestFit;
 	}
 
+
+	/**
+	 * Tries to find the first occurence of selected subsequence usign eager algorithm
+	 * (i.e., some of the items in this sequence may be skipped).
+	 * TODO: this method should accept also vector or VALUE (let's fix it in the future)
+	 * @param sequence of event values to search for (a time series, but the times are ignored)
+	 * @param mapping output vector, for each event in sequence, it will hold an index refering to *this
+	 *                partial mapping is stored here even if the whole sequence could not have been matched
+	 * @return true if the whole sequence was matched
+	 */
+	bool findSelectedSubsequence(const TimeSeries<VALUE, TIME>& sequence, std::vector<std::size_t> &mapping) const
+	{
+		if (sequence.empty()) {
+			throw std::runtime_error("Empty sequence given as needle for search.");
+		}
+
+		mapping.clear();
+		if (empty()) {
+			return false;
+		}
+
+		std::size_t idx = 0;
+		for (std::size_t si = 0; si < sequence.size(); ++si) {
+			while (idx < size() && sequence[si].value != mEvents[idx].value) {
+				++idx;
+			}
+
+			if (idx < size()) {
+				mapping.push_back(idx);
+			}
+			else break;
+		}
+	
+		return mapping.size() == sequence.size();
+	}
+
+
 	/**
 	 * Compare this time series with another one of the same type. Return total amount of discrete time
 	 * (from given range) the values from events differ.
