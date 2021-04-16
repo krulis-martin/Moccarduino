@@ -745,6 +745,16 @@ public:
 			throw std::runtime_error("Invariant breached! Index of last consumed event and last timestamp are not in sync.");
 		}
 	}
+
+	/**
+	 * Add constant timing skew to all event times.
+	 */
+	void addTimingSkew(TIME skew)
+	{
+		for (auto&& e : this->mEvents) {
+			e.time += skew;
+		}
+	}
 };
 
 
