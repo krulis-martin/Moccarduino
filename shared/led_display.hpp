@@ -666,10 +666,9 @@ private:
 	bool mClockInput;
 
 	/**
-	 * State of the output latch. When open, the shift register data are passed out to the display.
-	 * When closed, the outputs are frozen (register changes will not affect the display).
+	 * State of the latch pin. The shift register updates outputs with raise edge on latch pin.
 	 */
-	bool mLatchOpen;
+	bool mLatch;
 
 	/**
 	 * Update the states of all digits based on the data in the shift register.
@@ -677,10 +676,6 @@ private:
 	 */
 	void updateState(logtime_t time)
 	{
-		if (!mLatchOpen) {
-			return; // latch is closed, no update
-		}
-
 		auto activeDigits = mShiftRegister.get<std::uint8_t>(0);
 		auto glyph = mShiftRegister.get<std::uint8_t>(1);
 
@@ -709,7 +704,6 @@ protected:
 			if (mClockInput && !binValue) {
 				// clock pin confirms data pin when going from HIGH (current value) to LOW (new value)
 				mShiftRegister.push(mDataInput);
-				updateState(time);
 			}
 			mClockInput = binValue;
 		}
@@ -717,8 +711,11 @@ protected:
 			mDataInput = binValue;
 		}
 		else if (state.pin == mLatchPin) {
-			mLatchOpen = binValue;
-			updateState(time);
+			if (!mLatch && binValue) {
+				// latch goes from LOW to HIGH
+				updateState(time);
+			}
+			mLatch = binValue;
 		}
 		else {
 			throw std::runtime_error("Unknown pin number " + std::to_string(state.pin) + ".");
@@ -741,7 +738,7 @@ public:
 		mLatchPin(std::numeric_limits<pin_t>::max()), // invalid value
 		mDataInput(false),
 		mClockInput(false),
-		mLatchOpen(true)
+		mLatch(false)
 	{}
 
 	/**
