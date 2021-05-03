@@ -40,9 +40,11 @@ int main(int argc, char* argv[])
     try {
         // prepare testing data
         funshield.buttonClick(0, 100000, 3000000);
+        funshield.buttonClick(0, 100000, 4000000);
         funshield.buttonClick(1, 100000, 5000000);
-        funshield.buttonClick(2, 100000, 6000000);
-        logtime_t time = 7000000;
+        funshield.buttonClick(1, 100000, 6000000);
+        funshield.buttonClick(2, 100000, 7000000);
+        logtime_t time = 8000000;
 
         // assemble the components
         LedsEventsDemultiplexer<32> demuxer(10000);
@@ -56,7 +58,11 @@ int main(int argc, char* argv[])
 
         // simulate the run until all buttons are pressed
         std::cout << "Running the simulation (" << time / 1000000 << "s) ..." << std::endl;
-        arduino.runLoopsForPeriod(time);
+        arduino.runLoopsForPeriod(time, 100);
+
+        for (std::size_t i = 0; i < events.size(); ++i) {
+            //std::cout << events[i].time / 1000 << " " << events[i].value << std::endl;
+        }
 
         // analyze output pin history
         if (events.empty()) {
@@ -64,21 +70,20 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        if (events.size() != 3) {
+        if (events.size() != 5) {
             std::cerr << "Total 3 state changes expected, but " << events.size() << " events reported." << std::endl;
             return 1;
         }
 
-        for (std::size_t i = 0; i < events.size(); ++i) {
-            // std::cout << events[i].time / 1000 << " " << events[i].value << std::endl;
+        bool ok = true;
+        for (std::size_t i = 0; i < 5; ++i) {
+            ok = ok && checkEventTime(events, i, (i + 3) * 1000000);
         }
-
-        bool ok = checkEventTime(events, 0, 3000000)
-            && checkEventTime(events, 1, 5000000)
-            && checkEventTime(events, 2, 6000000)
-            && checkEventValue(events, 0, "abcd")
-            && checkEventValue(events, 1, "efgh")
-            && checkEventValue(events, 2, "ijkl");
+        ok = ok && checkEventValue(events, 0, "abcd");
+        ok = ok && checkEventValue(events, 1, "    ");
+        ok = ok && checkEventValue(events, 2, "efgh");
+        ok = ok && checkEventValue(events, 3, "    ");
+        ok = ok && checkEventValue(events, 4, "ijkl");
 
         if (!ok) {
             std::cerr << "Test failed!" << std::endl;

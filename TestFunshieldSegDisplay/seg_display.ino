@@ -17,13 +17,18 @@ void setup() {
 }
 
 int lastButton = -1;
+bool btnStates[] = { OFF, OFF, OFF } ;
 
 void loop() {
   bool newStates[] = { digitalRead(button1_pin), digitalRead(button2_pin), digitalRead(button3_pin) } ;
   for (int i = 0; i < 3; ++i) {
-    if (newStates[i] == false) {
-      lastButton = i;
+    if (newStates[i] == ON && btnStates[i] == OFF) {
+      if (lastButton == i)
+        lastButton = -1;
+      else
+        lastButton = i;
     }
+    btnStates[i] = newStates[i];
   }
 
   if (lastButton == 0) {
@@ -88,6 +93,12 @@ void loop() {
     digitalWrite(latch_pin, LOW);
     shiftOut(data_pin, clock_pin, MSBFIRST, 0b11000111); // l
     shiftOut(data_pin, clock_pin, MSBFIRST, 8);
+    digitalWrite(latch_pin, HIGH);
+  }
+  else {
+    digitalWrite(latch_pin, LOW);
+    shiftOut(data_pin, clock_pin, MSBFIRST, 0b11111111);
+    shiftOut(data_pin, clock_pin, MSBFIRST, 0b11111111);
     digitalWrite(latch_pin, HIGH);
   }
 }

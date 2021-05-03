@@ -368,7 +368,13 @@ private:
 					// no event -> just advance time for following consumers
 					this->nextConsumer()->advanceTime(mNextMarker);
 				}
+
+				if (mLastDemuxedState != mLastState) {
+					// if there is a potential the next window will change demuxed state...
+					mNextMarker += mTimeWindow; // ...time window shifts one place
+				}
 			}
+
 		}
 
 		// Yes, there is no "else" here. The previous block may have shifted the window,
@@ -384,7 +390,9 @@ private:
 protected:
 	void doAddEvent(logtime_t time, state_t state) override
 	{
-		updateOpenedWindow(time); // update, possibly close current window
+		do {
+			updateOpenedWindow(time); // update, possibly close current window
+		} while (isWindowOpen() && time >= mNextMarker);
 		mLastState = state;
 		if (!isWindowOpen()) {
 			// the event triggers opening of a new window
@@ -394,7 +402,9 @@ protected:
 
 	void doAdvanceTime(logtime_t time)
 	{
-		updateOpenedWindow(time); // update, possibly close current window
+		do {
+			updateOpenedWindow(time); // update, possibly close current window
+		} while (isWindowOpen() && time >= mNextMarker);
 		if (!isWindowOpen() && this->nextConsumer() != nullptr) {
 			// if no window is open, we can pass time advances as usual
 			this->nextConsumer()->advanceTime(time);
