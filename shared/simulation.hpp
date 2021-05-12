@@ -170,13 +170,20 @@ public:
 
 	/**
 	 * Run the loop given number of times.
+	 * @param count
 	 * @param loopDelay How much is internal clock advanced after every loop.
+	 * @param callback function that takes current time and returns bool (when returns false, the loops are interrupted)
 	 */
-	void runMultipleLoops(std::size_t count = 1, logtime_t loopDelay = 1)
+	void runMultipleLoops(std::size_t count = 1, logtime_t loopDelay = 1,
+		std::function<bool(logtime_t)> callback = [](logtime_t) { return true; })
 	{
 		while (count > 0) {
 			runSingleLoop(loopDelay);
 			--count;
+
+			if (!callback(getCurrentTime())) {
+				break;
+			}
 		}
 	}
 
@@ -185,11 +192,16 @@ public:
 	 * @param period How long whould we loop.
 	 * @param loopDelay How much is internal clock advanced after every loop.
 	 */
-	void runLoopsForPeriod(logtime_t period, logtime_t loopDelay = 1)
+	void runLoopsForPeriod(logtime_t period, logtime_t loopDelay = 1,
+		std::function<bool(logtime_t)> callback = [](logtime_t) { return true; })
 	{
 		logtime_t endTime = getCurrentTime() + period;
 		while (getCurrentTime() < endTime) {
 			runSingleLoop(loopDelay);
+
+			if (!callback(getCurrentTime())) {
+				break;
+			}
 		}
 	}
 };

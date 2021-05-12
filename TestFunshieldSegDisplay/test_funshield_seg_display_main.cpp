@@ -58,7 +58,15 @@ int main(int argc, char* argv[])
 
         // simulate the run until all buttons are pressed
         std::cout << "Running the simulation (" << time / 1000000 << "s) ..." << std::endl;
-        arduino.runLoopsForPeriod(time, 100);
+        std::size_t loopCount = 0;
+        arduino.runLoopsForPeriod(time, 100, [&](logtime_t)
+            {
+                ++loopCount;
+                return true;
+            }
+        );
+
+        std::cout << "Total " << loopCount << " loops executed." << std::endl;
 
         for (std::size_t i = 0; i < events.size(); ++i) {
             //std::cout << events[i].time / 1000 << " " << events[i].value << std::endl;
