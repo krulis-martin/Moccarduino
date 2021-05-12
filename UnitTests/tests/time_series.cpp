@@ -5,6 +5,33 @@
 #include <functional>
 #include <cstdint>
 
+class EventAnalyzerTest : public MoccarduinoTest
+{
+public:
+	EventAnalyzerTest() : MoccarduinoTest("event-analyzer") {}
+
+	virtual void run() const
+	{
+		int sum = 0;
+		EventAnalyzer<int> ea([&](logtime_t time, int value)
+			{
+				sum += value;
+			}
+		);
+
+		for (int i = 1; i < 10; ++i) {
+			ea.addEvent((logtime_t)i, i);
+		}
+
+		ea.advanceTime(100);
+		ASSERT_EQ(sum, 54, "lambda sum"); // 54 = 1+2+3...+8+9+9
+	}
+};
+
+
+EventAnalyzerTest   _eventAnalyzerTest;
+
+
 class TimeSeriesFindSelectedSubseqTest : public MoccarduinoTest
 {
 private:
@@ -12,7 +39,7 @@ private:
 	void fillTs(const std::vector<T> values, FutureTimeSeries<T>& ts, logtime_t period = 100) const
 	{
 		logtime_t time = 0;
-		for (auto val: values) {
+		for (auto val : values) {
 			time += period;
 			ts.addFutureEvent(time, val);
 		}

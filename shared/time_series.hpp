@@ -6,6 +6,7 @@
 #include <memory>
 #include <stdexcept>
 #include <limits>
+#include <functional>
 #include <cstdint>
 #include <cmath>
 
@@ -206,14 +207,14 @@ private:
 	EventConsumer<PROD_VALUE, TIME>* mSproutConsumer;
 
 protected:
-	virtual void doAddEvent(TIME time, VALUE value)
+	void doAddEvent(TIME time, VALUE value) override
 	{
 		EventConsumer<VALUE, TIME>::doAddEvent(time, value);
 
 		// Emitting events on the sprout must be defined in derived classes...
 	}
 
-	virtual void doAdvanceTime(TIME time)
+	void doAdvanceTime(TIME time) override
 	{
 		EventConsumer<VALUE, TIME>::doAdvanceTime(time);
 		if (mSproutConsumer != nullptr) {
@@ -221,7 +222,7 @@ protected:
 		}
 	}
 
-	virtual void doClear()
+	void doClear() override
 	{
 		EventConsumer<VALUE, TIME>::doClear();
 		if (mSproutConsumer != nullptr) {
@@ -269,6 +270,49 @@ public:
 		}
 		mSproutConsumer = nullptr;
 	}
+};
+
+
+/**
+ * A quick wrapper that allows functions (and lambdas) to get access to passing events.
+ */
+template<typename VALUE, typename TIME = logtime_t>
+class EventAnalyzer : public EventConsumer<VALUE, TIME>
+{
+private:
+	VALUE mLastValue;
+	std::function<void(TIME, VALUE)> mEventCallback;
+	std::function<void()> mClearCallback;
+
+
+protected:
+	void doAddEvent(TIME time, VALUE value) override
+	{
+		EventConsumer<VALUE, TIME>::doAddEvent(time, value);
+		mLastValue = value;
+		mEventCallback(time, value);
+	}
+
+	void doAdvanceTime(TIME time) override
+	{
+		EventConsumer<VALUE, TIME>::doAdvanceTime(time);
+		mEventCallback(time, mLastValue);
+
+	}
+
+	void doClear() override
+	{
+		EventConsumer<VALUE, TIME>::doClear();
+		mClearCallback();
+	}
+
+public:
+	/**
+	 * Constructor gets one or two functions - event processor (mandatory) and clear callback (optional).
+	 * The event processor is called with every new event and with advance time (using last event value).
+	 */
+	EventAnalyzer(std::function<void(TIME, VALUE)> eventCallback, std::function<void()> clearCallback = []() {})
+		: mEventCallback(eventCallback), mClearCallback(clearCallback) {}
 };
 
 
