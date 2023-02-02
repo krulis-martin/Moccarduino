@@ -3,11 +3,11 @@
 
 # Moccarduino
 
-Mocking environment for testing Arduino code. The sole objective of this project is to provide testing platform that could be used in
+Mocking environment for testing Arduino code. The sole objective of this project is to provide a testing platform that could be used in
 [ReCodEx](https://github.com/ReCodEx) for Arduino assignments.
 
-The emulator is operating on the well defined API. We are not simulating any low-level aspects of the actual processors used on Arduino boards.
-On the other hand, we also implement support for Funshield which contains 3 buttons, 4 independent LEDs, and 4 digit 7-segment LED display controlled by shift register filled from Arduino over serial link.
+The emulator is operating on a well-defined API. We are not simulating any low-level aspects of the actual processors used on Arduino boards.
+On the other hand, we also implement support for Funshield which contains 3 buttons, 4 independent LEDs, and 4 digit 7-segment LED display controlled by a shift register filled from Arduino over a serial link.
 
 ## Limitations and differences
 
@@ -24,11 +24,7 @@ There are several differences from the actual Arduino which may cause you proble
 <tbody>
 	<tr>
 		<td>Unsupported complex initialization of global variables</td>
-		<td class="text-nowrap">
-			<code>
-			size_t t = millis();
-			</code>
-		</td>
+		<td class="text-nowrap"><code>size_t t = millis();</code></td>
 		<td>
 			Initialize the variable with a default value and call the complex initialization in 
 			the <code>setup()</code> function.
@@ -79,6 +75,7 @@ There are several differences from the actual Arduino which may cause you proble
 </tbody>
 </table>
 
+Furthermore, the Moccarduino implements only functions from documented Arduino API. Hardware functionality that required direct access to registers (e.g., timers) is not supported.
 
 ## Code Overview
 
@@ -88,14 +85,14 @@ The most important part of the code is in `shared` directory. The surrounding pr
 - `interface.hpp`, `interface.cpp` implements the low-level API for the tested Arduino code
 - `funshield.h` holds additional constants needed for the Funshield (this header is given to students for development)
 - `helpers.hpp` gathers all helper classes (`BitArray`, `ShiftRegister`)
-- `time_series.hpp` is generalized implementation of sequence of events (used for various purposes, including analytical functions useful for behavioral assertions)
-- `emulator.hpp` implements the actual state of the arduino board and provides object oriented interface (wich is recalled from C `interface`)
+- `time_series.hpp` is a generalized implementation of a sequence of events (used for various purposes, including analytical functions useful for behavioral assertions)
+- `emulator.hpp` implements the actual state of the Arduino board and provides an object-oriented interface (which is recalled from C `interface`)
 - `simulation.hpp` uses the `emulator.hpp` and implements controller for the simulation
 - `led_display.hpp` is an implementation of 7-seg LED display accompanied by shift register (sequentially fed matrix control) and its demultiplexing and content decoding
-- `simulation_funshield.hpp` uses `simulation.hpp` and implements higher-level of simulation routines targeting specifically Funshield applications
+- `simulation_funshield.hpp` uses `simulation.hpp` and implements higher-level simulation routines targeting specifically Funshield applications
 
 
 ## Credits and Disclaimer
 
-This code is currently being developed under Department of software engineering, Faculty of Mathematics and Physics, Charles University (Prague, Czech Republic). It is being tailored for our needs and we provide no guarantees whatsoever.
+This code is currently being developed under the Department of software engineering, Faculty of Mathematics and Physics, Charles University (Prague, Czech Republic). It is being tailored to our needs and we provide no guarantees whatsoever.
  
