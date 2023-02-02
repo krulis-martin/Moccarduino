@@ -707,25 +707,25 @@ private:
 protected:
 	void doAddEvent(logtime_t time, ArduinoPinState state) override
 	{
-		bool binValue = state.value == HIGH ? true : false;
+		bool pinValue = state.value == HIGH ? true : false;
 
 		// yes, this if-else is not ideal, but what the heck, there are only 3 pins of interest
 		if (state.pin == mClockInputPin) {
-			if (mClockInput && !binValue) {
+			if (mClockInput && !pinValue) {
 				// clock pin confirms data pin when going from HIGH (current value) to LOW (new value)
 				mShiftRegister.push(mDataInput);
 			}
-			mClockInput = binValue;
+			mClockInput = pinValue;
 		}
 		else if (state.pin == mDataInputPin) {
-			mDataInput = binValue;
+			mDataInput = pinValue;
 		}
 		else if (state.pin == mLatchPin) {
-			if (!mLatch && binValue) {
+			if (!mLatch && pinValue) {
 				// latch goes from LOW to HIGH
 				updateState(time);
 			}
-			mLatch = binValue;
+			mLatch = pinValue;
 		}
 		else {
 			throw std::runtime_error("Unknown pin number " + std::to_string(state.pin) + ".");
