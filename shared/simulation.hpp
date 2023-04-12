@@ -60,6 +60,7 @@ public:
 		mEnableMethodFlags["shiftIn"] = &emulator.mEnableShiftIn;
 		mEnableMethodFlags["tone"] = &emulator.mEnableTone;
 		mEnableMethodFlags["noTone"] = &emulator.mEnableNoTone;
+		mEnableMethodFlags["serial"] = &emulator.mEnableSerial;
 
 		// enable all methods at the beginning
 		for (auto& [_, flagPtr] : mEnableMethodFlags) {

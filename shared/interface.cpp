@@ -198,3 +198,76 @@ bool isWhitespace(int c)
 {
 	return std::isblank(c);
 }
+
+
+// Serial
+
+SerialMock::operator bool() const
+{
+	return emulator.isSerialEnabled();
+}
+
+void SerialMock::begin(long speed, SerialConfig config)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+}
+
+void SerialMock::print(long long int val, SerialPrintFormat format)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+}
+
+void SerialMock::print(long long unsigned int val, SerialPrintFormat format)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+}
+
+void SerialMock::print(double val)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+}
+
+void SerialMock::print(const char* val)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+}
+
+void SerialMock::println(long long int val, SerialPrintFormat format)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+}
+
+void SerialMock::println(long long unsigned int val, SerialPrintFormat format)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+}
+
+void SerialMock::println(double val)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+}
+
+void SerialMock::println(const char* val)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+}
+
+SerialMock Serial;

@@ -210,6 +210,7 @@ private:
 	bool mEnableShiftIn;
 	bool mEnableTone;
 	bool mEnableNoTone;
+	bool mEnableSerial;
 
 	// Timing parameters
 	logtime_t mPinReadDelay;
@@ -338,6 +339,7 @@ public:
 		mEnableShiftIn(true),
 		mEnableTone(true),
 		mEnableNoTone(true),
+		mEnableSerial(false),
 		mPinReadDelay(20),
 		mPinWriteDelay(20),
 		mPinSetModeDelay(100)
@@ -598,6 +600,11 @@ public:
 		}
 
 		throw ArduinoEmulatorException("The noTone() function is not implemented in the emulator yet.");
+	}
+
+	bool isSerialEnabled() const
+	{
+		return mEnableSerial;
 	}
 };
 

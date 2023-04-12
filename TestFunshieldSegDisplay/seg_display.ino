@@ -14,12 +14,14 @@ void setup() {
   pinMode(button1_pin, INPUT);
   pinMode(button2_pin, INPUT);
   pinMode(button3_pin, INPUT);
+  Serial.begin(9600);
 }
 
 int lastButton = -1;
 bool btnStates[] = { OFF, OFF, OFF } ;
 
 void loop() {
+  Serial.println("Look at me, I'm looping...");
   bool newStates[] = { digitalRead(button1_pin), digitalRead(button2_pin), digitalRead(button3_pin) } ;
   for (int i = 0; i < 3; ++i) {
     if (newStates[i] == ON && btnStates[i] == OFF) {

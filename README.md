@@ -31,9 +31,9 @@ There are several differences from the actual Arduino which may cause you proble
 		</td>
 	</tr>
 	<tr>
-		<td>Unsupported communication API</td>
+		<td>Serial communication API</td>
 		<td class="text-nowrap"><code>Serial.print();</code></td>
-		<td>Use the functions for local debugging only. (Note: serial API mock is planned, stand by)</td>
+		<td>Only <code>Serial.begin()</code>, <code>Serial.print()</code>, and <code>Serial.println()</code> are currently implemented (which should be enough for debugging). The methods does not perform anything, they are placeholders, so you do not remove you debug-code when testing. The testing scenaion may opt-out (disable the serial interface).</td>
 	</tr>
 	<tr>
 		<td><code>max</code> is a function (but a macro at Arduino IDE)</td>

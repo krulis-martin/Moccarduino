@@ -158,4 +158,57 @@ bool isWhitespace(int c);
 using std::min;
 using std::max;
 
+// Serial interface
+
+enum SerialConfig {
+	SERIAL_5N1,
+	SERIAL_6N1,
+	SERIAL_7N1,
+	SERIAL_8N1,
+	SERIAL_5N2,
+	SERIAL_6N2,
+	SERIAL_7N2,
+	SERIAL_8N2,
+	SERIAL_5E1,
+	SERIAL_6E1,
+	SERIAL_7E1,
+	SERIAL_8E1,
+	SERIAL_5E2,
+	SERIAL_6E2,
+	SERIAL_7E2,
+	SERIAL_8E2,
+	SERIAL_5O1,
+	SERIAL_6O1,
+	SERIAL_7O1,
+	SERIAL_8O1,
+	SERIAL_5O2,
+	SERIAL_6O2,
+	SERIAL_7O2,
+	SERIAL_8O2,
+};
+
+enum SerialPrintFormat {
+	BIN,
+	OCT,
+	DEC,
+	HEX,
+};
+
+class SerialMock
+{
+public:
+	operator bool() const;
+	void begin(long speed, SerialConfig config = SERIAL_8N1);
+	void print(long long int val, SerialPrintFormat format = DEC);
+	void print(long long unsigned int val, SerialPrintFormat format = DEC);
+	void print(double val);
+	void print(const char* val);
+	void println(long long int val, SerialPrintFormat format = DEC);
+	void println (long long unsigned int val, SerialPrintFormat format = DEC);
+	void println(double val);
+	void println(const char* val);
+};
+
+extern SerialMock Serial;
+
 #endif
