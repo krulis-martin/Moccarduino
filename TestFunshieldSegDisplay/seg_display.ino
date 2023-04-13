@@ -7,6 +7,8 @@
 
 #include <funshield.h>
 
+#define TST_SERIAL(type) { type x = (type)42; Serial.print(x); Serial.println(x); }
+
 void setup() {
   pinMode(latch_pin, OUTPUT);
   pinMode(clock_pin, OUTPUT);
@@ -15,6 +17,18 @@ void setup() {
   pinMode(button2_pin, INPUT);
   pinMode(button3_pin, INPUT);
   Serial.begin(9600);
+
+  TST_SERIAL(byte)
+  TST_SERIAL(int)
+  TST_SERIAL(unsigned int)
+  TST_SERIAL(long)
+  TST_SERIAL(unsigned long)
+  TST_SERIAL(long long)
+  TST_SERIAL(unsigned long long)
+  TST_SERIAL(char)
+  TST_SERIAL(unsigned char)
+  TST_SERIAL(double)
+  TST_SERIAL(float)
 }
 
 int lastButton = -1;

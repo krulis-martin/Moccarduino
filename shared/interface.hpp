@@ -199,12 +199,26 @@ class SerialMock
 public:
 	operator bool() const;
 	void begin(long speed, SerialConfig config = SERIAL_8N1);
-	void print(long long int val, SerialPrintFormat format = DEC);
-	void print(long long unsigned int val, SerialPrintFormat format = DEC);
+
+	void print(char val, SerialPrintFormat format = DEC);
+	void print(int val, SerialPrintFormat format = DEC);
+	void print(long val, SerialPrintFormat format = DEC);
+	void print(long long val, SerialPrintFormat format = DEC);
+	void print(unsigned char val, SerialPrintFormat format = DEC);
+	void print(unsigned int val, SerialPrintFormat format = DEC);
+	void print(unsigned long val, SerialPrintFormat format = DEC);
+	void print(unsigned long long val, SerialPrintFormat format = DEC);
 	void print(double val);
 	void print(const char* val);
-	void println(long long int val, SerialPrintFormat format = DEC);
-	void println (long long unsigned int val, SerialPrintFormat format = DEC);
+
+	void println(char val, SerialPrintFormat format = DEC);
+	void println(int val, SerialPrintFormat format = DEC);
+	void println(long val, SerialPrintFormat format = DEC);
+	void println(long long val, SerialPrintFormat format = DEC);
+	void println(unsigned char val, SerialPrintFormat format = DEC);
+	void println(unsigned int val, SerialPrintFormat format = DEC);
+	void println(unsigned long val, SerialPrintFormat format = DEC);
+	void println(unsigned long long val, SerialPrintFormat format = DEC);
 	void println(double val);
 	void println(const char* val);
 };
