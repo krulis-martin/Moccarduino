@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <iostream>
+#include <sstream>
+#include <string>
 #include <cstdint>
 
 
@@ -138,6 +140,20 @@ public:
 			input = input >> 1;
 			++offset;
 		}
+	}
+
+	/**
+	 * Returns the bit array encoded in hex-based string.
+	 */
+	operator std::string() const
+	{
+		std::stringstream sstr;
+		sstr << std::hex << std::setfill('0');;
+		for (int i = 0; i < N + 7 / 8; ++i) {
+			std::uint8_t val = get<std::uint8_t>(i * 8);
+			sstr << std::setw(2) << val;
+		}
+		return sstr.str();
 	}
 };
 

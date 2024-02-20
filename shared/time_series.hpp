@@ -7,6 +7,9 @@
 #include <stdexcept>
 #include <limits>
 #include <functional>
+#include <string>
+#include <sstream>
+#include <iomanip>
 #include <cstdint>
 #include <cmath>
 
@@ -312,43 +315,13 @@ public:
 	 * The event processor is called with every new event and with advance time (using last event value).
 	 */
 	EventAnalyzer(std::function<void(TIME, VALUE)> eventCallback, std::function<void()> clearCallback = []() {})
-		: mEventCallback(eventCallback), mClearCallback(clearCallback) {}
+		: mLastValue(), mEventCallback(eventCallback), mClearCallback(clearCallback) {}
 };
 
-
-/**
- * A container of time-marked events. It provides a similar interface like vector
- * (which is also used as internal storage) and additionaly some analytical functions that
- * might help with behavioral assertions.
- * @tparam VALUE the inner value of each event (e.g., a state of a pin)
- * @tparam TIME type used for logical time stamps
- */
-template<typename VALUE, typename TIME = logtime_t> 
-class TimeSeries : public EventConsumer<VALUE, TIME>
+template<typename TIME = logtime_t>
+class TimeSeriesBase
 {
 public:
-	/**
-	 * Internal structure that wraps all time series events.
-	 */
-	struct Event {
-	public:
-		TIME time;		///< when the event happen
-		VALUE value;	///< associated value of the event (new state)
-
-		Event(TIME t, VALUE v) : time(t), value(v) {}
-
-		// make the sorting algorithm great again!
-		inline bool operator<(const Event& e) const
-		{
-			return time < e.time || (time == e.time && value < e.value);
-		}
-
-		inline bool operator==(const Event& e) const
-		{
-			return time == e.time && value == e.value;
-		}
-	};
-
 	/**
 	 * Range of indices of time series events. Basically an interval [start, end).
 	 */
@@ -401,7 +374,59 @@ public:
 
 		inline bool overlap(const Range& r) const
 		{
-			return mStart < r.mEnd&& mEnd > r.mStart;
+			return mStart < r.mEnd && mEnd > r.mStart;
+		}
+	};
+
+	virtual std::size_t size() const = 0;
+	virtual bool empty() const = 0;
+	virtual TIME getEventTime(std::size_t idx) const = 0;
+	virtual std::string getEventAsString(std::size_t idx) const = 0;
+
+protected:
+	template<typename T>
+	static std::string convert(const T& value) {
+		return std::string(value);
+	}
+
+	template<>
+	static std::string convert(const bool& value) {
+		return value ? "1" : "0";
+	}
+};
+
+/**
+ * A container of time-marked events. It provides a similar interface like vector
+ * (which is also used as internal storage) and additionaly some analytical functions that
+ * might help with behavioral assertions.
+ * @tparam VALUE the inner value of each event (e.g., a state of a pin)
+ * @tparam TIME type used for logical time stamps
+ */
+template<typename VALUE, typename TIME = logtime_t> 
+class TimeSeries : public TimeSeriesBase<TIME>, public EventConsumer<VALUE, TIME>
+{
+public:
+	using Range = typename TimeSeriesBase<TIME>::Range;
+
+	/**
+	 * Internal structure that wraps all time series events.
+	 */
+	struct Event {
+	public:
+		TIME time;		///< when the event happen
+		VALUE value;	///< associated value of the event (new state)
+
+		Event(TIME t, VALUE v) : time(t), value(v) {}
+
+		// make the sorting algorithm great again!
+		inline bool operator<(const Event& e) const
+		{
+			return time < e.time || (time == e.time && value < e.value);
+		}
+
+		inline bool operator==(const Event& e) const
+		{
+			return time == e.time && value == e.value;
 		}
 	};
 
@@ -432,9 +457,24 @@ protected:
 public:
 	// interface that simulates deque
 
-	std::size_t size() const
+	std::size_t size() const override
 	{
 		return mEvents.size();
+	}
+
+	bool empty() const override
+	{
+		return mEvents.empty();
+	}
+
+	TIME getEventTime(std::size_t idx) const override
+	{
+		return mEvents[idx].time;
+	}
+
+	std::string getEventAsString(std::size_t idx) const override
+	{
+		return TimeSeriesBase<TIME>::convert(mEvents[idx].value);
 	}
 
 	const Event& operator[](std::size_t idx) const
@@ -445,11 +485,6 @@ public:
 	const Event& at(std::size_t idx) const
 	{
 		return mEvents[idx];
-	}
-
-	bool empty() const
-	{
-		return mEvents.empty();
 	}
 
 	const Event& front() const

@@ -7,6 +7,8 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <string>
+#include <sstream>
 #include <stdexcept>
 #include <cctype>
 #include <random>
@@ -61,6 +63,14 @@ public:
 	template<int PIN, typename...Args>
 	inline static std::vector<ArduinoPinState> sequence(Args...args) {
 		return { ArduinoPinState(PIN, args)... };
+	}
+
+	operator std::string() const
+	{
+		std::stringstream sstr;
+		sstr << pin << ":" << value;
+		return sstr.str();
+
 	}
 };
 

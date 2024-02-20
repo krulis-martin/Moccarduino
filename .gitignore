@@ -1,7 +1,4 @@
 /.vs
-/bin
-/Experiment/.tmp
-/UnitTests/.tmp
-/TestBlinkLedBasic/.tmp
-/TestFunshieldButtonsAndLeds/.tmp
-/TestFunshieldSegDisplay/.tmp
+bin/
+.tmp/
+
