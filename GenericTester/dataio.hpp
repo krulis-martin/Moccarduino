@@ -16,7 +16,7 @@
  * @param outputEvents a vector of time series (one for each button), if the vector is empty, no events are recorded
  * @return duration of the emulation as loaded from the input stream
  */
-logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshield, std::vector<TimeSeries<bool>>& outputEvents);
+logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshield, std::vector<std::shared_ptr<TimeSeries<bool>>>& outputEvents);
 
 /**
  * Print out formatted CSV composed of multiple time series (collecting events).

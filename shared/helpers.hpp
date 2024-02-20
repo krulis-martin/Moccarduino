@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 #include <string>
 #include <cstdint>
 
@@ -76,8 +77,10 @@ public:
 	bool operator==(const BitArray<N>& ba) const
 	{
 		// lets make sure == operator compares only relevant bits
-		for (std::size_t i = 0; i < N / 8; ++i) {
-			if (mData[i] != ba.mData[i]) return false;
+		if (N >= 8) {
+			for (std::size_t i = 0; i < N / 8; ++i) {
+				if (mData[i] != ba.mData[i]) return false;
+			}
 		}
 
 		for (std::size_t i = (N/8) * 8; i < N; ++i) {

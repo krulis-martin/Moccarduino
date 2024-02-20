@@ -9,7 +9,7 @@
 #include <functional>
 #include <string>
 #include <sstream>
-#include <iomanip>
+#include <type_traits>
 #include <cstdint>
 #include <cmath>
 
@@ -386,7 +386,12 @@ public:
 protected:
 	template<typename T>
 	static std::string convert(const T& value) {
-		return std::string(value);
+		if constexpr (std::is_arithmetic_v<T>) {
+			return std::to_string(value);
+		}
+		else {
+			return std::string(value);
+		}
 	}
 
 	template<>
