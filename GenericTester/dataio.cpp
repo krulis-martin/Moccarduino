@@ -10,7 +10,7 @@
  * @param outputEvents a vector of time series (one for each button), if the vector is empty, no events are recorded
  * @return duration of the emulation as loaded from the input stream
  */
-logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshield, std::vector<TimeSeries<bool>>& outputEvents)
+logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshield, std::vector<std::shared_ptr<TimeSeries<bool>>>& outputEvents)
 {
     std::string line;
     std::size_t lineCount = 0;
@@ -58,7 +58,7 @@ logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshi
 
         // record it for the output events
         if (outputEvents.size() > button) {
-            outputEvents[button].addEvent(time, newButtonState);
+            outputEvents[button]->addEvent(time, newButtonState);
         }
     }
 
