@@ -450,7 +450,7 @@ public:
 
 /**
  * Another filter typically used in combination with demultiplexer. It suppresses change events in rapid succession.
- * That might be necessary in situations when demuxer is doing its job, but could not distinguis between actual state
+ * That might be necessary in situations when demuxer is doing its job, but could not distinguish between actual state
  * changes.
  * Therefore the recommended setup is to use demultiplexer with smaller window (e.g., 10ms) followed by aggregator with
  * larger window (50-100ms).
