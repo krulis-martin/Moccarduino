@@ -58,7 +58,7 @@ logtime_t processInput(bpp::ProgramArguments &args, FunshieldSimulationControlle
 
     if (args.getArgInt("simulation-length").isPresent()) {
         // possibly override simulation time
-        simulationTime = (logtime_t)args.getArgInt("simulation-length").getValue();
+        simulationTime = (logtime_t)args.getArgInt("simulation-length").getValue() * 1000;
     }
     
     if (args.getArgBool("log-buttons").getValue()) {
