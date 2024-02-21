@@ -386,17 +386,15 @@ public:
 protected:
 	template<typename T>
 	static std::string convert(const T& value) {
+		if constexpr (std::is_same_v<T, bool>) {
+			return value ? "1" : "0";
+		}
 		if constexpr (std::is_arithmetic_v<T>) {
 			return std::to_string(value);
 		}
 		else {
 			return std::string(value);
 		}
-	}
-
-	template<>
-	static std::string convert(const bool& value) {
-		return value ? "1" : "0";
 	}
 };
 

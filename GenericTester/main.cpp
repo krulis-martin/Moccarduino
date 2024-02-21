@@ -29,7 +29,9 @@ logtime_t processInput(bpp::ProgramArguments &args, FunshieldSimulationControlle
 {
     std::vector<std::shared_ptr<TimeSeries<bool>>> buttonEvents;
     if (args.getArgBool("log-buttons").getValue()) {
-        buttonEvents.resize(3);
+        buttonEvents.emplace_back(std::make_shared<TimeSeries<bool>>());
+        buttonEvents.emplace_back(std::make_shared<TimeSeries<bool>>());
+        buttonEvents.emplace_back(std::make_shared<TimeSeries<bool>>());
     }
 
     logtime_t simulationTime = 0;
@@ -134,37 +136,37 @@ int main(int argc, char* argv[])
         // LEDs
         LedsEventsDemultiplexer<4> ledDemuxer(args.getArgInt("leds-demuxer-window").getValue() * 1000);
         LedsEventsAggregator<4> ledAggregator(args.getArgInt("leds-aggregator-window").getValue() * 1000);
+        auto ledEvents = std::make_shared<TimeSeries<leds_state_t>>();
         if (args.getArgBool("log-leds").getValue()) {
-            std::shared_ptr<TimeSeries<leds_state_t>> events;
             if (args.getArgBool("raw-leds").getValue()) {
                 // collecting raw LED events
-                funshield.getLeds().attachSproutConsumer(*events);
+                funshield.getLeds().attachSproutConsumer(*ledEvents);
             }
             else {
                 // LED events smoothing using demuxer and aggregator
                 funshield.getLeds().attachSproutConsumer(ledDemuxer);
                 ledDemuxer.attachNextConsumer(ledAggregator);
-                ledAggregator.attachNextConsumer(*events);
+                ledAggregator.attachNextConsumer(*ledEvents);
             }
-            outputEvents["leds"] = events;
+            outputEvents["leds"] = ledEvents;
         }
 
         // 7-seg display
         LedsEventsDemultiplexer<32> segDemuxer(args.getArgInt("7seg-demuxer-window").getValue() * 1000);
         LedsEventsAggregator<32> segAggregator(args.getArgInt("7seg-aggregator-window").getValue() * 1000);
+        auto segEvents = std::make_shared<TimeSeries<display_state_t>>();
         if (args.getArgBool("log-7seg").getValue()) {
-            std::shared_ptr<TimeSeries<display_state_t>> events;
             if (args.getArgBool("raw-7seg").getValue()) {
                 // collecting raw LED events
-                funshield.getSegDisplay().attachSproutConsumer(*events);
+                funshield.getSegDisplay().attachSproutConsumer(*segEvents);
             }
             else {
                 // LED events smoothing using demuxer and aggregator
                 funshield.getSegDisplay().attachSproutConsumer(segDemuxer);
                 segDemuxer.attachNextConsumer(segAggregator);
-                segAggregator.attachNextConsumer(*events);
+                segAggregator.attachNextConsumer(*segEvents);
             }
-            outputEvents["7seg"] = events;
+            outputEvents["7seg"] = segEvents;
         }
 
         // run simulation

@@ -45,8 +45,8 @@ The output file is a CSV that uses commas as a separator (no quotes are used for
 
 - `--timestamp` - event simulation time (microseconds from the beginning) in decimal format
 - `--b1`, `b2`, `b3` - buttons, possible values are 0 = button is released, 1 = button is down
-- `--leds` - string of four 0/1 values; led1 is the first char
-- `--7seg` - output of 7-seg display binary value (4B) encoded in hex (8 digits) holding a digital representation of the display state (first byte is the leftmost position)
+- `--leds` - four bit values encoded into single hex digit (0-f), least significant bit is LED #1 (according to `funshield.h`) uses inverted logic (1 = OFF, 0 = ON)
+- `--7seg` - output of 7-seg display binary value (4B) encoded in hex (8 digits) holding a digital representation of the display state (first byte is the rightmost position), also uses inverted logic
 
 All columns besides `timestamp` are filled only when the value is changed at that time (otherwise it is an empty string). Note that multiple changing events may take place at the same time, so multiple different columns may be non-empty on the same row.
 

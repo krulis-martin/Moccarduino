@@ -152,9 +152,9 @@ public:
 	{
 		std::stringstream sstr;
 		sstr << std::hex << std::setfill('0');;
-		for (int i = 0; i < N + 7 / 8; ++i) {
-			std::uint8_t val = get<std::uint8_t>(i * 8);
-			sstr << std::setw(2) << val;
+		for (int i = 0; i < ((N + 3) / 4); ++i) {
+			int val = get<int>(i * 4, 4);
+			sstr << std::setw(1) << val;
 		}
 		return sstr.str();
 	}
