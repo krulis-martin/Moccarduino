@@ -14,6 +14,21 @@
 #include <sstream>
 #include <fstream>
 
+#ifdef RECODEX
+#define CERR std::cout // only stdout is collected in ReCodEx
+constexpr int error_res = 0; // error code other than 0 prevents executing the judge
+constexpr int error_internal = 0; // error code other than 0 prevents executing the judge
+#define PRINT_ERROR_HEADER std::cout << "ERROR" << std::endl;
+#define PRINT_INTERNAL_ERROR_HEAD std::cout << "INTERNAL ERROR" << std::endl;
+#else
+#define CERR std::cerr
+constexpr int error_res = 1;
+constexpr int error_internal = 2;
+#define PRINT_ERROR_HEADER
+#define PRINT_INTERNAL_ERROR_HEAD
+#endif
+
+
 // a declaration of a method from interface that will give us the emulator instance
 ArduinoEmulator& get_arduino_emulator_instance();
 
@@ -116,7 +131,7 @@ int main(int argc, char* argv[])
     catch (bpp::ArgumentException& e) {
         std::cout << "Invalid arguments: " << e.what() << std::endl << std::endl;
         args.printUsage(std::cout);
-        return 1;
+        return 100;
     }
 
     output_events_t outputEvents;
@@ -203,8 +218,9 @@ int main(int argc, char* argv[])
         );
 
         if (args.getArgBool("one-latch-loop").getValue() && violatedLoopsCount > 0) {
-            std::cout << "The single-latch-activation rule was violated in " << violatedLoopsCount << " loop() invocations." << std::endl;
-            return 2;
+            PRINT_ERROR_HEADER
+            CERR << "The single-latch-activation rule was violated in " << violatedLoopsCount << " loop() invocations." << std::endl;
+            return error_res;
         }
 
         // make sure 
@@ -215,9 +231,15 @@ int main(int argc, char* argv[])
             processOutput(args, outputEvents);
         }
     }
+    catch (ArduinoEmulatorException& e) {
+        PRINT_ERROR_HEADER
+        CERR << "Arduino Emulator Exception: " << e.what() << std::endl;
+        return error_res;
+    }
     catch (std::exception& e) {
-        std::cerr << "Exception: " << e.what() << std::endl;
-        return 100;
+        PRINT_INTERNAL_ERROR_HEAD
+        CERR << "Exception: " << e.what() << std::endl;
+        return error_internal;
     }
 
     return 0;

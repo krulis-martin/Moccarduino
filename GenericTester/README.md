@@ -1,5 +1,8 @@
 Generic tester is configured by command line arguments, reads input (button) events from a file and produces a simulation event log.
 
+In ReCodEx, the tester should be compiled with RECODEX macro set. It will make sure the exit codes are 0 in case of regular errors (so the judge will be activated), all output is made to stdout (since stderr is ignored by judge) and errors are announced by `ERROR` or `ERROR INTERNAL` messages on the first line.
+
+
 ### Command line arguments
 
 - `--save` - Path to a file to which the simulation log (as CSV) is saved (stdout is used, if no file is given).
@@ -52,3 +55,4 @@ All columns besides `timestamp` are filled only when the value is changed at tha
 
 The LEDs and 7seg display use smoothening unless the are switched to _raw_* collection (by a particular argument).
 
+In case of error, the first line of the output file contains `ERROR` or `INTERNAL ERROR`. Jhe judge is then expected to just dump the rest of the log as an error message (to stdout in case of regular error, to stderr in case of internal error).

@@ -57,7 +57,7 @@ logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshi
         }
 
         // record it for the output events
-        if (button < outputEvents.size()) {
+        if (button < (int)outputEvents.size()) {
             outputEvents[button]->addEvent(time, newButtonState);
         }
     }
