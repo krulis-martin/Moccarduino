@@ -478,6 +478,11 @@ private:
 	state_t mLastState;
 
 	/**
+	 * Time when the last state was recorded.
+	 */
+	logtime_t mLastStateTime;
+
+	/**
 	 * Last state emitted to the next consumer.
 	 */
 	state_t mLastEmittedState;
@@ -506,9 +511,8 @@ private:
 				mLastEmittedState = mLastState;
 				if (this->nextConsumer() != nullptr) {
 					// emit event for following consumers
-					this->nextConsumer()->addEvent(mNextMarker, mLastEmittedState);
+					this->nextConsumer()->addEvent(mLastStateTime, mLastEmittedState);
 				}
-				mNextMarker += mTimeWindow; // time window shifts one place
 			}
 			else if (this->nextConsumer() != nullptr) {
 				// advance time for the following consumer
@@ -522,10 +526,13 @@ protected:
 	void doAddEvent(logtime_t time, state_t state) override
 	{
 		updateOpenedWindow(time); // update, possibly close current window
-		mLastState = state;
-		if (!isWindowOpen()) {
-			// the event triggers opening of a new window
-			mNextMarker = time + mTimeWindow;
+		if (mLastState != state) {
+			mLastState = state;
+			mLastStateTime = time; // the state actually changed, record when
+			if (!isWindowOpen()) {
+				// the event triggers opening of a new window
+				mNextMarker = time + mTimeWindow;
+			}
 		}
 	}
 
@@ -542,6 +549,7 @@ protected:
 	{
 		mNextMarker = this->mLastTime;
 		mLastState.fill(OFF);
+		mLastStateTime = this->mLastTime;
 		mLastEmittedState.fill(OFF);
 		EventConsumer<BitArray<LEDS>>::doClear();
 	}
@@ -554,6 +562,7 @@ public:
 		mTimeWindow(timeWindow),
 		mNextMarker(0),
 		mLastState(OFF),
+		mLastStateTime(0),
 		mLastEmittedState(OFF)
 	{
 		if (mTimeWindow == 0) {
