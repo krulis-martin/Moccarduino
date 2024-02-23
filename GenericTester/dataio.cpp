@@ -37,7 +37,7 @@ logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshi
         }
 
         if (button < 1 || button > 3 || (action != 'u' && action != 'd')) {
-            throw std::runtime_error("Invalid operation (button #" + std::to_string(button) + " action " + std::to_string(action)
+            throw std::runtime_error("Invalid operation (button #" + std::to_string(button) + " action " + action
                 + ") found at line " + std::to_string(lineCount));
         }
         --button; // normalize to zero-based index
