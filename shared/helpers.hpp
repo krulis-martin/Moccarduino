@@ -151,10 +151,16 @@ public:
 	operator std::string() const
 	{
 		std::stringstream sstr;
-		sstr << std::hex << std::setfill('0');;
-		for (int i = 0; i < ((N + 3) / 4); ++i) {
-			int val = get<int>(i * 4, 4);
+		sstr << std::hex << std::setfill('0');
+		if constexpr (N <= 4) {
+			int val = get<int>(0, 4);
 			sstr << std::setw(1) << val;
+		}
+		else {
+			for (int i = 0; i < ((N + 7) / 8); ++i) {
+				int val = get<int>(i * 8, 8);
+				sstr << std::setw(2) << val;
+			}
 		}
 		return sstr.str();
 	}
