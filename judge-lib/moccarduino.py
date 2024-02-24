@@ -83,6 +83,17 @@ class LedState:
         else:
             self.value = self.value | ((1 << idx) & 0xf)
 
+    def get_bit_val(self):
+        val = 0
+        for i in range(0, 4):
+            val = val * 2 + int(self.is_led_on(i))
+        return val
+
+
+class DisplayState:
+    def __init__(self, value=''):
+        pass
+
 
 class SimulationLog:
     '''
@@ -92,6 +103,18 @@ class SimulationLog:
         if s is None or s == '':
             return None
         return bool(int(s))
+
+    @staticmethod
+    def _read_leds(s):
+        if s is None or s == '':
+            return None
+        return LedState(s)
+
+    @staticmethod
+    def _read_display(s):
+        if s is None or s == '':
+            return None
+        return DisplayState(s)
 
     def __init__(self, csv_file=None):
         self.events = []
@@ -136,9 +159,10 @@ class SimulationLog:
                 if self.buttons:
                     for b in ['b1', 'b2', 'b3']:
                         line[b] = self._read_bool(line.get(b))
-
                 if self.leds:
-                    line["leds"] = LedState(line["leds"])
+                    line["leds"] = self._read_leds(line["leds"])
+                if self.display:
+                    line["7seg"] = self._read_display(line["7seg"])
                 self.events.append(line)
 
     def count(self):
@@ -147,10 +171,58 @@ class SimulationLog:
     def max_timestamp(self):
         if len(self.events) == 0:
             raise Exception("No events were loaded.")
-        return self.events[len(self.events)-1]["timestamp"]
+        return self.events[-1]["timestamp"]
 
     def get(self, idx):
         return self.events[idx]
 
-    def get_leds(self):
-        return list(filter(None, map(lambda e: e["leds"], self.events)))
+    def get_selected_events(self, type):
+        return dict(filter(lambda v: v[1] is not None,
+                           map(lambda e: (e["timestamp"], e[type]),
+                               self.events)))
+
+    def get_leds_values(self):
+        return list(self.get_selected_events("leds").values())
+
+
+def _find_best_match(events, value, max_time):
+    '''
+    Helper function that finds matching event at the beginning of events
+    within the given time frame.
+    Returns offset to events, -1 if no match is found
+    '''
+    if not events or events[0][0] > max_time:
+        return -1  # no candidates within the timeframe
+
+    for i in range(0, len(events)):
+        if events[i][0] > max_time:
+            break
+        elif events[i][1] == value:
+            return i
+    return 0
+
+
+def pair_events(expected, actual, time_window):
+    '''
+    Create mapping between two lists of events. An event is a tuple/list,
+    where first item is timestamp, second item is the state/value.
+    Expected events are calculated, actual are loaded from the log.
+    The paring assumes the expected timestamp is always before actual ts.
+    Returns a list of tuples where first item is from expected, second from
+    actual. None may be used on either side for unpaired events.
+    Time window defines maximal timestamp difference between paired events.
+    '''
+    mapping = []
+    actual = actual[:]  # make a copy, so we can pop events
+    for e in expected:
+        while actual and actual[0][0] < e[0]:
+            mapping.append((None, actual.pop(0)))
+
+        best = _find_best_match(actual, e[1], e[0] + time_window)
+        while best > 0:
+            mapping.append((None, actual.pop(0)))
+            best -= 1
+
+        mapping.append((e, actual.pop(0) if best == 0 else None))
+
+    return mapping
