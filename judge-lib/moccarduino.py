@@ -91,13 +91,173 @@ class LedState:
 
 
 class DisplayState:
-    def __init__(self, value=''):
-        pass
+    '''
+    Represents a state of the 7seg display.
+    '''
+
+    def __init__(self, value=0xffffffff):
+        if type(value) is str:
+            self.value = int(value, 16)
+        elif type(value) is int:
+            self.value = value
+        else:
+            raise Exception(
+                "Unexpected value {} given as LED state.".format(value))
+
+        if self.value < 0 or self.value > 0xffffffff:
+            raise Exception(
+                "LED state value out of range ({}).".format(self.value))
+
+    def __eq__(self, other):
+        return self.value == other.value
+
+    def __str__(self):
+        '''
+         . _ . _ . _ . _ .
+        . |_| |_| |_| |_| .
+        . |_|o|_|o|_|o|_|o.
+         .   .   .   .   .
+        '''
+        row1 = []
+        row2 = []
+        row3 = []
+        segs2 = {0b100000: '|', 0b1000000: '_', 0b10: '|', }
+        segs3 = {0b10000: '|', 0b1000: '_', 0b100: '|', 0x80: 'o'}
+        for i in range(3, -1, -1):
+            glyph = self.get_position_raw(i)
+            row1.append('_' if glyph & 1 == ON else ' ')
+            row2.append(
+                ''.join(map(lambda s: s[1] if glyph & s[0] == ON else ' ',
+                            segs2.items())))
+            row3.append(
+                ''.join(map(lambda s: s[1] if glyph & s[0] == ON else ' ',
+                            segs3.items())))
+
+        return (" . " + " . ".join(row1) + " .\n. " + ' '.join(row2)
+                + " .\n. " + ''.join(row3) + ".\n ." + ('   .' * 4))
+
+    def get_raw(self):
+        return self.value
+
+    def get_position_raw(self, pos):
+        return (self.value >> (pos * 8)) & 0xff
+
+    def is_position_empty(self, pos):
+        return self.get_position_raw(pos) == 0xff
+
+    def get_glyph(self, pos):
+        '''
+        Return raw representation of a glyph (inverted logic) at given `pos`.
+        Position 0 is the rightmost position, decimal dot is masked out.
+        '''
+        return self.get_position_raw(pos) | 0x80
+
+    def get_digit(self, pos, empty_is_zero=False):
+        '''
+        Return decoded decimal digit at given position.
+        None if the digit cannot be decoded.
+        '''
+        digits = {
+            0xff: 0 if empty_is_zero else None,
+            0xc0: 0,
+            0xf9: 1,
+            0xa4: 2,
+            0xb0: 3,
+            0x99: 4,
+            0x92: 5,
+            0x82: 6,
+            0xf8: 7,
+            0x80: 8,
+            0x90: 9,
+        }
+        return digits.get(self.get_glyph(pos))
+
+    def set_digit(self, pos, value):
+        digits = [0xc0, 0xf9, 0xa4, 0xb0, 0x99, 0x92, 0x82, 0xf8, 0x80, 0x90]
+        mask = (0xffffff00 << (pos * 8)) | (0xffffff >> ((3-pos) * 8))
+        glyph = digits[value] << (pos * 8)
+        self.value = (self.value & mask) | glyph
+
+    def has_decimal_dot(self, pos=None):
+        '''
+        Return true if decimal dot is set.
+        If `pos` is none, only specified position is tested.
+        '''
+        if pos is None:
+            return (self.value & 0x80808080) > 0  # at least one dot is set
+        else:
+            return ((self.value >> (pos * 8)) & 0x80) > 0
+
+    def get_decimal_positions(self):
+        '''
+        Return a list of all positions where a decimal dot is set.
+        '''
+        res = []
+        for i in range(0, 4):
+            if self.has_decimal_dot(i):
+                res.append(i)
+
+    def get_number(self, decode_decimal_dot=False):
+        '''
+        Parse a number on the display. Returns None if state is not valid.
+        If decimal dot is set, a float number may be retuned.
+        '''
+        res = 0
+        for i in range(0, 4):
+            if self.is_position_empty(i):
+                break
+            digit = self.get_digit(i)
+            if digit is None:
+                return None
+            res = (res * 10) + digit
+
+        if decode_decimal_dot:
+            dots = self.get_decimal_positions()
+            if len(dots) > 0:
+                if len(dots) > 1:
+                    return None
+                return res / (10 ** dots[0])
+            else:
+                return res
+
+    def get_char(self, pos):
+        # TODO
+        return None
+
+    def get_text(self, space=' ', invalid_char=None):
+        '''
+        Return plain text representation of the display.
+        If invalid_char is set, unrecognizable positions are filled with it,
+        otherwise None is returned if any position is not valid.
+        '''
+        res = []
+        for i in range(3, -1, -1):
+            if self.is_position_empty(i):
+                res.append(space)
+                continue
+
+            digit = self.get_digit(i)
+            if digit is not None:
+                res.append(str(digit))
+                continue
+
+            char = self.get_char(i)
+            if char is not None:
+                res.append(char)
+                continue
+
+            if invalid_char is None:
+                return None
+            res.append(invalid_char)
+
+        return ''.join(res)
 
 
 class SimulationLog:
     '''
+    Loads and holds all simulation log events.
     '''
+
     @staticmethod
     def _read_bool(s):
         if s is None or s == '':
@@ -135,6 +295,7 @@ class SimulationLog:
 
     def load(self, csv_file):
         '''
+        Load the log from a CSV produced by Moccarduino generic tester.
         '''
         if not os.path.isfile(csv_file):
             raise Exception("CSV file {} does not exist.".format(csv_file))
