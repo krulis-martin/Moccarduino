@@ -142,8 +142,9 @@ class DisplayState:
     def get_position_raw(self, pos):
         return (self.value >> (pos * 8)) & 0xff
 
-    def is_position_empty(self, pos):
-        return self.get_position_raw(pos) == 0xff
+    def is_position_empty(self, pos, ignore_dot=False):
+        mask = 0x7f if ignore_dot else 0xff
+        return self.get_position_raw(pos) & mask == mask
 
     def get_glyph(self, pos):
         '''
@@ -186,7 +187,21 @@ class DisplayState:
         if pos is None:
             return (self.value & 0x80808080) > 0  # at least one dot is set
         else:
-            return ((self.value >> (pos * 8)) & 0x80) > 0
+            return ((self.value >> (pos * 8)) & 0x80) == 0
+
+    def set_decimal_dot(self, pos, value=True):
+        '''
+        Modify decimal dot state at given `pos`.
+        Value true sets the LED ON.
+        '''
+        mask = 0x80 << (pos * 8)
+        if value:
+            # true = bit is set to 0 (ON)
+            mask = 0xffffffff ^ mask
+            self.value &= mask
+        else:
+            # false = bit is set to 1 (OFF)
+            self.value |= mask
 
     def get_decimal_positions(self):
         '''
@@ -220,11 +235,56 @@ class DisplayState:
             else:
                 return res
 
-    def get_char(self, pos):
-        # TODO
-        return None
+    def get_letter(self, pos):
+        '''
+        Return decoded decimal digit at given position.
+        None if the digit cannot be decoded.
+        '''
+        letters = {
+            0b10001000: "A",
+            0b10000011: "B",
+            0b11000110: "C",
+            0b10100001: "D",
+            0b10000110: "E",
+            0b10001110: "F",
+            0b10000010: "G",
+            0b10001001: "H",
+            0b11111001: "I",
+            0b11100001: "J",
+            0b10000101: "K",
+            0b11000111: "L",
+            0b11001000: "M",
+            0b10101011: "N",
+            0b10100011: "O",
+            0b10001100: "P",
+            0b10011000: "Q",
+            0b10101111: "R",
+            0b10010010: "S",
+            0b10000111: "T",
+            0b11000001: "U",
+            0b11100011: "V",
+            0b10000001: "W",
+            0b10110110: "X",
+            0b10010001: "Y",
+            0b10100100: "Z",
+        }
+        return letters.get(self.get_glyph(pos))
 
-    def get_text(self, space=' ', invalid_char=None):
+    def _get_char(self, i, space, invalid_char):
+        if self.is_position_empty(i, ignore_dot=True):
+            return space
+
+        digit = self.get_digit(i)
+        if digit is not None:
+            return str(digit)
+
+        letter = self.get_letter(i)
+        if letter is not None:
+            return letter
+
+        return invalid_char
+
+    def get_text(self, space=' ', decimal_dot=None, invalid_char=None):
         '''
         Return plain text representation of the display.
         If invalid_char is set, unrecognizable positions are filled with it,
@@ -232,23 +292,13 @@ class DisplayState:
         '''
         res = []
         for i in range(3, -1, -1):
-            if self.is_position_empty(i):
-                res.append(space)
-                continue
-
-            digit = self.get_digit(i)
-            if digit is not None:
-                res.append(str(digit))
-                continue
-
-            char = self.get_char(i)
-            if char is not None:
-                res.append(char)
-                continue
-
-            if invalid_char is None:
+            char = self._get_char(i, space, invalid_char)
+            if char is None:
                 return None
-            res.append(invalid_char)
+
+            res.append(char)
+            if decimal_dot and self.has_decimal_dot(i):
+                res.append(decimal_dot)
 
         return ''.join(res)
 
