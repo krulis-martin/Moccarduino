@@ -194,6 +194,7 @@ enum SerialPrintFormat {
 	HEX,
 };
 
+// A subset of Serial class
 class SerialMock
 {
 public:
@@ -221,6 +222,11 @@ public:
 	void println(unsigned long long val, SerialPrintFormat format = DEC);
 	void println(double val);
 	void println(const char* val);
+
+	std::size_t available() const;
+	int peek() const;
+	int read();
+	std::size_t readBytes(char* buffer, std::size_t length);
 };
 
 extern SerialMock Serial;

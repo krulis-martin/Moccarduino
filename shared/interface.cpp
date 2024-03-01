@@ -268,4 +268,48 @@ void SerialMock::println(const char* val)
 	}
 }
 
+std::size_t SerialMock::available() const
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+	return emulator.serialDataAvailable();
+}
+
+int SerialMock::peek() const
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+	if (emulator.serialDataAvailable() == 0) {
+		return -1;
+	}
+	return emulator.peekSerial();
+}
+
+int SerialMock::read()
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+	if (emulator.serialDataAvailable() == 0) {
+		return -1;
+	}
+	return emulator.readSerial();
+
+}
+
+std::size_t SerialMock::readBytes(char* buffer, std::size_t length)
+{
+	if (!emulator.isSerialEnabled()) {
+		throw ArduinoEmulatorException("The Serial interface is disabled in the emulator.");
+	}
+	length = std::min(length, emulator.serialDataAvailable());
+	for (std::size_t i = 0; i < length; ++i) {
+		buffer[i] = emulator.readSerial();
+	}
+	return length;
+}
+
+
 SerialMock Serial;

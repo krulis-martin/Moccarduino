@@ -227,6 +227,8 @@ private:
 	logtime_t mPinWriteDelay;
 	logtime_t mPinSetModeDelay;
 
+	std::deque<char> mSerialData;
+
 	void reset()
 	{
 		mCurrentTime = 0;
@@ -615,6 +617,50 @@ public:
 	bool isSerialEnabled() const
 	{
 		return mEnableSerial;
+	}
+
+	/**
+	 * Enqueue additional serial data to be read by the emulated code.
+	 */
+	void addSerialData(const std::string& str)
+	{
+		for (char c : str) {
+			mSerialData.push_back(c);
+		}
+	}
+
+	/**
+	 * Return number of bytes enqueued in serial buffer.
+	 */
+	std::size_t serialDataAvailable() const
+	{
+		return mSerialData.size();
+	}
+
+	/**
+	 * Return the next byte (char) to be read from the serial buffer.
+	 */
+	char peekSerial() const
+	{
+		if (mSerialData.empty()) {
+			return '\0';
+		}
+
+		return mSerialData.front();
+	}
+
+	/**
+	 * Return and pop one char from the serial data buffer.
+	 */
+	char readSerial()
+	{
+		if (mSerialData.empty()) {
+			return '\0';
+		}
+
+		char res = mSerialData.front();
+		mSerialData.pop_front();
+		return res;
 	}
 };
 
