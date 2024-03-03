@@ -88,4 +88,11 @@ void loop() {
     shiftOut(data_pin, clock_pin, MSBFIRST, 0b11111111);
     digitalWrite(latch_pin, HIGH);
   }
+
+  while (Serial.available()) {
+    char ch = (char)Serial.read();
+    if (ch >= '0' && ch <= '9') {
+        counter = (counter * 10 + (int)(ch - '0')) % 10000;
+    }
+  }
 }

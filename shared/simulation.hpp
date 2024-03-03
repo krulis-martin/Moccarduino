@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 #include <algorithm>
+#include <deque>
 
 
 /**
@@ -29,6 +30,11 @@ private:
 	 */
 	std::map<pin_t, FutureTimeSeries<ArduinoPinState>> mInputBuffers;
 
+	/**
+	 * Registered simulation inputs, strings that will be sent as serial data (at given time)
+	 */
+	std::deque<std::pair<logtime_t, std::string>> mSerialInput;
+
 	void setMethodEnableFlag(const std::string& name, bool enabled)
 	{
 		auto it = mEnableMethodFlags.find(name);
@@ -36,6 +42,15 @@ private:
 			throw ArduinoEmulatorException("Invalid API function name '" + name + "'.");
 		}
 		*(it->second) = enabled;
+	}
+
+	void advanceCurrentTimeBy(logtime_t time)
+	{
+		logtime_t currentTime = mEmulator.advanceCurrentTimeBy(time);
+		while (!mSerialInput.empty() && mSerialInput.front().first <= currentTime) {
+			mEmulator.addSerialData(mSerialInput.front().second);
+			mSerialInput.pop_front();
+		}
 	}
 
 public:
@@ -140,6 +155,18 @@ public:
 		}
 	}
 
+	void enqueueSerialInputEvent(const std::string& input, logtime_t delay = 0)
+	{
+		logtime_t time = mEmulator.mCurrentTime + delay;
+		if (!mSerialInput.empty() && mSerialInput.back().first > time) {
+			throw ArduinoEmulatorException("Adding serial input event at " + std::to_string(time)
+				+ " would violate ordering, since last event is already scheduled at "
+				+ std::to_string(mSerialInput.back().first) + ".");
+		}
+		mSerialInput.emplace_back(std::make_pair(time, input));
+	}
+
+
 	/**
 	 * Clear all events for pin's queue.
 	 */
@@ -150,13 +177,21 @@ public:
 	}
 
 	/**
+	 * Remove all scheduled serial events.
+	 */
+	void clearSerialInputEvents()
+	{
+		mSerialInput.clear();
+	}
+
+	/**
 	 * Invoke the setup function.
 	 * @param setupDelay How much is internal clock advanced after the setup.
 	 */
 	void runSetup(logtime_t setupDelay = 1)
 	{
 		mEmulator.invokeSetup();
-		mEmulator.advanceCurrentTimeBy(setupDelay);
+		advanceCurrentTimeBy(setupDelay);
 	}
 
 	/**
@@ -166,7 +201,7 @@ public:
 	void runSingleLoop(logtime_t loopDelay = 1)
 	{
 		mEmulator.invokeLoop();
-		mEmulator.advanceCurrentTimeBy(loopDelay);
+		advanceCurrentTimeBy(loopDelay);
 	}
 
 	/**

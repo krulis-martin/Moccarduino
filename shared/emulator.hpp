@@ -227,8 +227,11 @@ private:
 	logtime_t mPinWriteDelay;
 	logtime_t mPinSetModeDelay;
 
+	/**
+	 * Buffer of currently available serial data (which can be read by Arduino).
+	 */
 	std::deque<char> mSerialData;
-
+	
 	void reset()
 	{
 		mCurrentTime = 0;
@@ -240,13 +243,16 @@ private:
 		for (auto& [_, arduinoPin] : mPins) {
 			arduinoPin.reset();
 		}
+
+		mSerialData.clear();
 	}
 
 	/**
 	 * Advances the Arduino emulator time forward by given number of microseconds.
 	 * @param us relative logical time in microseconds
+	 * @return time after update
 	 */
-	void advanceCurrentTimeBy(logtime_t us)
+	logtime_t advanceCurrentTimeBy(logtime_t us)
 	{
 		mCurrentTime += us;
 
@@ -257,6 +263,7 @@ private:
 		for (auto& [_, arduinoPin] : mPins) {
 			arduinoPin.advanceTime(mCurrentTime);
 		}
+		return mCurrentTime;
 	}
 
 	/**
@@ -627,6 +634,7 @@ public:
 		for (char c : str) {
 			mSerialData.push_back(c);
 		}
+		mSerialData.push_back('\n');
 	}
 
 	/**

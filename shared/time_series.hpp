@@ -384,8 +384,26 @@ public:
 	virtual std::string getEventAsString(std::size_t idx) const = 0;
 
 protected:
+	/**
+	 * Wrap a string in double quotes and properly encode all double quotes inside.
+	 */
+	static std::string encode_doublequotes(const std::string& str)
+	{
+		std::stringstream result;
+		result << '"';
+		std::for_each(str.begin(), str.end(), [&](const char c) {
+			if (c == '"') result << '"'; // prefix double quote with another (RFC 4180)
+			result << c;
+		});
+		result << '"';
+		return result.str();
+	}
+
 	template<typename T>
 	static std::string convert(const T& value) {
+		if constexpr (std::is_same_v<T, std::string>) {
+			return encode_doublequotes(value);
+		}
 		if constexpr (std::is_same_v<T, bool>) {
 			return value ? "1" : "0";
 		}

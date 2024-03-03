@@ -48,6 +48,10 @@ logtime_t processInput(bpp::ProgramArguments &args, FunshieldSimulationControlle
         buttonEvents.emplace_back(std::make_shared<TimeSeries<bool>>());
         buttonEvents.emplace_back(std::make_shared<TimeSeries<bool>>());
     }
+    std::shared_ptr<TimeSeries<std::string>> serialEvents;
+    if (args.getArgBool("log-serial").getValue()) {
+        serialEvents = std::make_shared<TimeSeries<std::string>>();
+    }
 
     logtime_t simulationTime = 0;
 
@@ -58,11 +62,11 @@ logtime_t processInput(bpp::ProgramArguments &args, FunshieldSimulationControlle
             if (!sin.is_open()) {
                 throw std::runtime_error("Failed to open input file " + args[0]);
             }
-            simulationTime = loadInputData(sin, funshield, buttonEvents);
+            simulationTime = loadInputData(sin, funshield, buttonEvents, serialEvents);
         }
         else {
             // load events from stdin
-            simulationTime = loadInputData(std::cin, funshield, buttonEvents);
+            simulationTime = loadInputData(std::cin, funshield, buttonEvents, serialEvents);
         }
     }
     else {
@@ -80,6 +84,10 @@ logtime_t processInput(bpp::ProgramArguments &args, FunshieldSimulationControlle
         outputEvents["b1"] = buttonEvents[0];
         outputEvents["b2"] = buttonEvents[1];
         outputEvents["b3"] = buttonEvents[2];
+    }
+
+    if (args.getArgBool("log-serial").getValue()) {
+        outputEvents["serial"] = serialEvents;
     }
 
     return simulationTime;
@@ -111,6 +119,7 @@ int main(int argc, char* argv[])
         args.registerArg<bpp::ProgramArguments::ArgInt>("simulation-length", "Length of the simulation in ms (overrides value from input file, required if no input file is provided).", false, 0, 0);
         args.registerArg<bpp::ProgramArguments::ArgInt>("loop-delay", "Delay between two loop invocations [us].", false, 100, 1);
         args.registerArg<bpp::ProgramArguments::ArgBool>("log-buttons", "Add button events into output log.");
+        args.registerArg<bpp::ProgramArguments::ArgBool>("log-serial", "Add serial-link input events into output log.");
         args.registerArg<bpp::ProgramArguments::ArgBool>("log-leds", "Add LED events into output log.");
         args.registerArg<bpp::ProgramArguments::ArgBool>("log-7seg", "Add events of the 7-segment display into output log.");
 

@@ -13,10 +13,12 @@
  * Load input text file (stream) with button events. Fill them into funshield emulator and record them in output time series.
  * @param sin input stream (the opened text file)
  * @param funshield the emulator being pre-loaded with button events
- * @param outputEvents a vector of time series (one for each button), if the vector is empty, no events are recorded
+ * @param buttonEvents a vector of time series (one for each button), if the vector is empty, no events are recorded
+ * @param serialEvents a time series holding input events for serial link (data transferred from host to Arduino)
  * @return duration of the emulation as loaded from the input stream
  */
-logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshield, std::vector<std::shared_ptr<TimeSeries<bool>>>& outputEvents);
+logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshield,
+	std::vector<std::shared_ptr<TimeSeries<bool>>>& buttonEvents, std::shared_ptr<TimeSeries<std::string>> serialEvents);
 
 /**
  * Print out formatted CSV composed of multiple time series (collecting events).

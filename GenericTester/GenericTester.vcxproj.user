@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>--log-buttons --log-leds --log-7seg --raw-7seg ./data/test1.in</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>--log-buttons --log-leds --log-7seg --log-serial ./data/test1.in</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>--log-buttons --log-leds --log-7seg --raw-7seg ./data/test1.in</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>--log-buttons --log-leds --log-7seg --log-serial ./data/test1.in</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>
