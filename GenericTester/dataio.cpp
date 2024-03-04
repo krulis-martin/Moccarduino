@@ -39,6 +39,11 @@ logtime_t loadInputData(std::istream& sin, FunshieldSimulationController& funshi
             if (newState != '\0') {
                 std::getline(ss, serialInput, '\0');
                 serialInput = newState + serialInput;
+
+                // trim whitespace at the end (may be \r or extra trailing spaces)
+                serialInput.erase(std::find_if(serialInput.rbegin(), serialInput.rend(), [](unsigned char ch) {
+                    return !std::isspace(ch);
+                }).base(), serialInput.end());
             }
 
             funshield.getArduino().enqueueSerialInputEvent(serialInput, time);
