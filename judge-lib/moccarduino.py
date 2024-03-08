@@ -95,6 +95,39 @@ class DisplayState:
     Represents a state of the 7seg display.
     '''
 
+    # Translation table for letters
+    letters = {
+        0b10001000: "A",
+        0b10000011: "B",
+        0b11000110: "C",
+        0b10100001: "D",
+        0b10000110: "E",
+        0b10001110: "F",
+        0b10000010: "G",
+        0b10001001: "H",
+        0b11111001: "I",
+        0b11100001: "J",
+        0b10000101: "K",
+        0b11000111: "L",
+        0b11001000: "M",
+        0b10101011: "N",
+        0b10100011: "O",
+        0b10001100: "P",
+        0b10011000: "Q",
+        0b10101111: "R",
+        0b10010010: "S",
+        0b10000111: "T",
+        0b11000001: "U",
+        0b11100011: "V",
+        0b10000001: "W",
+        0b10110110: "X",
+        0b10010001: "Y",
+        0b10100100: "Z",
+    }
+
+    # list of letter glyphs for inverse translation
+    letter_glyphs = list(letters.keys())
+
     def __init__(self, value=0xffffffff):
         if type(value) is str:
             self.value = int(value, 16)
@@ -142,6 +175,11 @@ class DisplayState:
     def get_position_raw(self, pos):
         return (self.value >> (pos * 8)) & 0xff
 
+    def set_position_raw(self, pos, value):
+        mask = (0xffffff00 << (pos * 8)) | (0xffffff >> ((3-pos) * 8))
+        glyph = value << (pos * 8)
+        self.value = (self.value & mask) | glyph
+
     def is_position_empty(self, pos, ignore_dot=False):
         mask = 0x7f if ignore_dot else 0xff
         return self.get_position_raw(pos) & mask == mask
@@ -174,10 +212,11 @@ class DisplayState:
         return digits.get(self.get_glyph(pos))
 
     def set_digit(self, pos, value):
+        '''
+        Show a digit at a particular position.
+        '''
         digits = [0xc0, 0xf9, 0xa4, 0xb0, 0x99, 0x92, 0x82, 0xf8, 0x80, 0x90]
-        mask = (0xffffff00 << (pos * 8)) | (0xffffff >> ((3-pos) * 8))
-        glyph = digits[value] << (pos * 8)
-        self.value = (self.value & mask) | glyph
+        self.set_position_raw(pos, digits[value])
 
     def has_decimal_dot(self, pos=None):
         '''
@@ -240,43 +279,33 @@ class DisplayState:
         Return decoded decimal digit at given position.
         None if the digit cannot be decoded.
         '''
-        letters = {
-            0b10001000: "A",
-            0b10000011: "B",
-            0b11000110: "C",
-            0b10100001: "D",
-            0b10000110: "E",
-            0b10001110: "F",
-            0b10000010: "G",
-            0b10001001: "H",
-            0b11111001: "I",
-            0b11100001: "J",
-            0b10000101: "K",
-            0b11000111: "L",
-            0b11001000: "M",
-            0b10101011: "N",
-            0b10100011: "O",
-            0b10001100: "P",
-            0b10011000: "Q",
-            0b10101111: "R",
-            0b10010010: "S",
-            0b10000111: "T",
-            0b11000001: "U",
-            0b11100011: "V",
-            0b10000001: "W",
-            0b10110110: "X",
-            0b10010001: "Y",
-            0b10100100: "Z",
-        }
-        return letters.get(self.get_glyph(pos))
+        return self.letters.get(self.get_glyph(pos))
 
-    def _get_char(self, i, space, invalid_char):
+    def set_letter(self, pos, letter):
+        '''
+        Set a specific letter at specifi position.
+        Uknonw characters are displayed as space ' '.
+        '''
+        letter = letter.lower()[:1]
+        if not letter:
+            raise Exception("Invalid letter '{}'.".format(letter))
+
+        letter_index = ord(letter) - ord('a')
+        if letter_index >= 0 and letter_index < len(self.letter_glyphs):
+            glyph = self.letter_glyphs[letter_index]
+        else:
+            glyph = 0xff
+
+        self.set_position_raw(pos, glyph)
+
+    def _get_char(self, i, space, invalid_char, numbers):
         if self.is_position_empty(i, ignore_dot=True):
             return space
 
-        digit = self.get_digit(i)
-        if digit is not None:
-            return str(digit)
+        if numbers:
+            digit = self.get_digit(i)
+            if digit is not None:
+                return str(digit)
 
         letter = self.get_letter(i)
         if letter is not None:
@@ -284,7 +313,8 @@ class DisplayState:
 
         return invalid_char
 
-    def get_text(self, space=' ', decimal_dot=None, invalid_char=None):
+    def get_text(self, space=' ', decimal_dot=None, invalid_char=None,
+                 numbers=True):
         '''
         Return plain text representation of the display.
         If invalid_char is set, unrecognizable positions are filled with it,
@@ -292,7 +322,7 @@ class DisplayState:
         '''
         res = []
         for i in range(3, -1, -1):
-            char = self._get_char(i, space, invalid_char)
+            char = self._get_char(i, space, invalid_char, numbers)
             if char is None:
                 return None
 
@@ -343,9 +373,14 @@ class SimulationLog:
     def has_display(self):
         return self.display
 
+    def has_serial(self):
+        return self.serial
+
     def load(self, csv_file):
         '''
         Load the log from a CSV produced by Moccarduino generic tester.
+        Warning: at present, we cannot distinguish between no serial event and
+        serial input containing an empty string.
         '''
         if not os.path.isfile(csv_file):
             raise Exception("CSV file {} does not exist.".format(csv_file))
@@ -360,10 +395,12 @@ class SimulationLog:
                 judge_internal(fp.read())
 
             fp.seek(0)
+
             reader = csv.DictReader(fp)
             self.buttons = "b1" in reader.fieldnames
             self.leds = "leds" in reader.fieldnames
             self.display = "7seg" in reader.fieldnames
+            self.serial = "serial" in reader.fieldnames
 
             for line in reader:
                 line["timestamp"] = int(line["timestamp"])
@@ -374,6 +411,8 @@ class SimulationLog:
                     line["leds"] = self._read_leds(line["leds"])
                 if self.display:
                     line["7seg"] = self._read_display(line["7seg"])
+                if self.serial and not line["serial"]:
+                    line["serial"] = None
                 self.events.append(line)
 
     def count(self):
