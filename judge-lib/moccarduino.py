@@ -1,9 +1,14 @@
 import sys
 import csv
 import os
+import math
 
 ON = 0
 OFF = 1
+
+#
+# Mission critical functions
+#
 
 
 def judge_ok():
@@ -32,6 +37,10 @@ def judge_internal(msg):
     print(msg, file=sys.stderr)
     sys.exit(2)
 
+
+#
+# Classes
+#
 
 class WrongAnswer(Exception):
     '''
@@ -128,6 +137,9 @@ class DisplayState:
     # list of letter glyphs for inverse translation
     letter_glyphs = list(letters.keys())
 
+    minus_sign = 0xbf
+    empty_space = 0xff
+
     def __init__(self, value=0xffffffff):
         if type(value) is str:
             self.value = int(value, 16)
@@ -168,6 +180,9 @@ class DisplayState:
 
         return (" . " + " . ".join(row1) + " .\n. " + ' '.join(row2)
                 + " .\n. " + ''.join(row3) + ".\n ." + ('   .' * 4))
+
+    def clear(self):
+        self.value = 0xffffffff
 
     def get_raw(self):
         return self.value
@@ -251,28 +266,60 @@ class DisplayState:
             if self.has_decimal_dot(i):
                 res.append(i)
 
+    def get_highest_nonempty_pos(self):
+        '''
+        Return index of the first nonempty position from the left:
+        3 = thousands, 0 = units, -1 = entire display is empty
+        '''
+        for i in range(3, -1, -1):
+            if not self.is_position_empty(i):
+                return i
+        return -1
+
     def get_number(self, decode_decimal_dot=False):
         '''
         Parse a number on the display. Returns None if state is not valid.
         If decimal dot is set, a float number may be retuned.
         '''
+
+        highest = self.get_highest_nonempty_pos()
+        if highest < 0:
+            return None
+
         res = 0
-        for i in range(0, 4):
+        for i in range(0, highest+1):
             if self.is_position_empty(i):
-                break
+                return None
+
             digit = self.get_digit(i)
             if digit is None:
-                return None
-            res = (res * 10) + digit
+                if self.get_glyph(i) == self.minus_sign and i == highest:
+                    res = -res
+                else:
+                    return None
+            else:
+                res += digit * (10 ** i)
 
         if decode_decimal_dot:
             dots = self.get_decimal_positions()
             if len(dots) > 0:
-                if len(dots) > 1:
+                if len(dots) > 1 and dots[0] <= highest:
                     return None
-                return res / (10 ** dots[0])
-            else:
-                return res
+                res = res / (10 ** dots[0])
+
+        return res
+
+    def set_number(self, num):
+        self.clear()
+        minus = num < 0
+        num = abs(num)
+        for i in range(0, 4):
+            if num > 0 or i == 0:
+                self.set_digit(i, num % 10)
+            elif minus:
+                self.set_position_raw(i, self.minus_sign)
+                break
+            num = num // 10
 
     def get_letter(self, pos):
         '''
@@ -433,6 +480,28 @@ class SimulationLog:
 
     def get_leds_values(self):
         return list(self.get_selected_events("leds").values())
+
+
+#
+# Additional functions
+#
+
+def statistics(data):
+    '''
+    Compute mean and deviation of integers on the input.
+    '''
+    if len(data) == 0:
+        return None
+
+    mean = 0
+    mean2 = 0
+    for x in data:
+        mean += x
+        mean2 += x * x
+    mean = mean / len(data)
+    mean2 = mean2 / len(data)
+    # deviation = sqrt(E(X^2) - (EX)^2)
+    return (mean, math.sqrt(mean2 - (mean*mean)))
 
 
 def _find_best_match(events, value, max_time):
