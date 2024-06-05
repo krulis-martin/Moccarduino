@@ -125,14 +125,17 @@ public:
 	void setMode(int mode)
 	{
 		if (mode != INPUT && mode != OUTPUT) {
-			throw ArduinoEmulatorException("Trying to set pin into invalid mode.");
+			throw ArduinoEmulatorException("Trying to set pin (" + std::to_string(mState.pin)
+				+ ") into invalid mode (" + std::to_string(mode) + ").");
 		}
 		if (mMode != UNDEFINED && mMode != mode) {
 			// Regular applications cannot use one pin both as input and as output.
-			throw ArduinoEmulatorException("Unable to change I/O mode of a pin at runtime.");
+			throw ArduinoEmulatorException("Unable to change I/O mode of a pin ("
+				+ std::to_string(mState.pin) + ") at runtime.");
 		}
 		if (mWiring == INPUT && mMode == OUTPUT) {
-			throw ArduinoEmulatorException("Attempting to switch input pin into output mode. That might result in shot circuit.");
+			throw ArduinoEmulatorException("Attempting to switch input pin (" + std::to_string(mState.pin)
+				+ ") into output mode. That might result in shot circuit.");
 		}
 
 		mMode = mode;
@@ -148,11 +151,12 @@ public:
 	int read() const
 	{
 		if (mMode == UNDEFINED) {
-			throw ArduinoEmulatorException("Pin mode has to be set before the pin is actually used.");
+			throw ArduinoEmulatorException("Pin (" + std::to_string(mState.pin)
+				+ ") mode has to be set before the pin is actually used.");
 		}
 
 		if (mMode != INPUT) {
-			throw ArduinoEmulatorException("Unable to read data from an output pin.");
+			throw ArduinoEmulatorException("Unable to read data from an output pin (" + std::to_string(mState.pin) + ").");
 		}
 
 		return mState.value;
@@ -164,11 +168,12 @@ public:
 	void write(int value, logtime_t time)
 	{
 		if (mMode == UNDEFINED) {
-			throw ArduinoEmulatorException("Pin mode has to be set before the pin is actually used.");
+			throw ArduinoEmulatorException("Pin (" + std::to_string(mState.pin)
+				+ ") mode has to be set before the pin is actually used.");
 		}
 
 		if (mMode != OUTPUT) {
-			throw ArduinoEmulatorException("Unable to write data to an input pin.");
+			throw ArduinoEmulatorException("Unable to write data to an input pin (" + std::to_string(mState.pin) + ").");
 		}
 
 		mState.value = value;
@@ -273,7 +278,8 @@ private:
 	{
 		auto it = mPins.find(pin);
 		if (it == mPins.end()) {
-			throw ArduinoEmulatorException("Trying to reach pin which is not defined in the emulator.");
+			throw ArduinoEmulatorException("Trying to reach pin (" + std::to_string(pin)
+				+ ") which is not defined in the emulator.");
 		}
 
 		return it->second;
@@ -295,9 +301,9 @@ private:
 	{
 		auto it = mPins.find(pin);
 		if (it != mPins.end()) {
-			throw ArduinoEmulatorException("Given pin already exists.");
+			throw ArduinoEmulatorException("Given pin (" + std::to_string(pin) + ") already exists.");
 		}
-		mPins.emplace(pin,ArduinoPin(pin, wiring));
+		mPins.emplace(pin, ArduinoPin(pin, wiring));
 	}
 
 	/**
@@ -309,7 +315,8 @@ private:
 	{
 		auto& arduinoPin = getPin(pin);
 		if (arduinoPin.mWiring != INPUT) {
-			throw std::runtime_error("Unable to attach input event provider to pin which is not wired as input.");
+			throw std::runtime_error("Unable to attach input event provider to pin ("
+				+ std::to_string(pin) + ") which is not wired as input.");
 		}
 
 		// detach old input chain first (if exists)
