@@ -265,6 +265,7 @@ class DisplayState:
         for i in range(0, 4):
             if self.has_decimal_dot(i):
                 res.append(i)
+        return res
 
     def get_highest_nonempty_pos(self):
         '''
@@ -279,7 +280,7 @@ class DisplayState:
     def get_number(self, decode_decimal_dot=False):
         '''
         Parse a number on the display. Returns None if state is not valid.
-        If decimal dot is set, a float number may be retuned.
+        If decimal dot is set, a float number may be returned.
         '''
 
         highest = self.get_highest_nonempty_pos()
@@ -330,8 +331,8 @@ class DisplayState:
 
     def set_letter(self, pos, letter):
         '''
-        Set a specific letter at specifi position.
-        Uknonw characters are displayed as space ' '.
+        Set a specific letter at specific position.
+        Unknown characters are displayed as space ' '.
         '''
         letter = letter.lower()[:1]
         if not letter:
@@ -545,3 +546,48 @@ def pair_events(expected, actual, time_window):
         mapping.append((e, actual.pop(0) if best == 0 else None))
 
     return mapping
+
+
+def _generate_button_events(from_time, to_time, button, delay, period):
+    '''
+    Helper function for get_button_action_events.
+    Generate a list of button events for the given time interval.
+    '''
+    res = [(from_time, button)]
+    time = from_time + delay
+    while time < to_time:
+        res.append((time, button))
+        time += period
+    return res
+
+
+def get_button_action_events(log, end_time, delay=1000000, period=300000):
+    '''
+    Load button events and return a list of tuples (time, button) when a button
+    action is actually triggered (taking repetitions into account).
+    The delay and the period define button timing (like in the 3rd assignment).
+    Buttons are indexed from zero (b1=0,...b3=2).
+    '''
+    res = []
+    btns = {"b1": 0, "b2": 1, "b3": 2}
+    states = [False, False, False]
+    press_times = [0, 0, 0]
+    for i in range(0, log.count()):
+        event = log.get(i)
+        for key, idx in btns.items():
+            if event[key] is not None or states[idx] == event[key]:
+                if event[key]:
+                    press_times[idx] = event["timestamp"]
+                elif states[idx]:
+                    res += _generate_button_events(
+                        press_times[idx], event["timestamp"],
+                        idx, delay, period)
+                states[idx] = event[key]
+
+    for idx in range(0, len(states)):
+        if states[idx]:
+            res += _generate_button_events(
+                press_times[idx], end_time, idx, delay, period)
+
+    res.sort(key=lambda x: x[0])  # sort by time
+    return res
