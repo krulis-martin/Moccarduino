@@ -187,6 +187,9 @@ class DisplayState:
     def get_raw(self):
         return self.value
 
+    def get_hex(self):
+        return hex(self.value)
+
     def get_position_raw(self, pos):
         return (self.value >> (pos * 8)) & 0xff
 
@@ -505,7 +508,7 @@ def statistics(data):
     return (mean, math.sqrt(mean2 - (mean*mean)))
 
 
-def _find_best_match(events, value, max_time):
+def _find_best_match(events, value, max_time, compare_function=None):
     '''
     Helper function that finds matching event at the beginning of events
     within the given time frame.
@@ -514,15 +517,23 @@ def _find_best_match(events, value, max_time):
     if not events or events[0][0] > max_time:
         return -1  # no candidates within the timeframe
 
-    for i in range(0, len(events)):
-        if events[i][0] > max_time:
-            break
-        elif events[i][1] == value:
-            return i
+    if compare_function is None:
+        for i in range(0, len(events)):
+            if events[i][0] > max_time:
+                break
+            elif events[i][1] == value:
+                return i
+    else:
+        for i in range(0, len(events)):
+            if events[i][0] > max_time:
+                break
+            elif compare_function(events[i][1], value):
+                return i
+
     return 0
 
 
-def pair_events(expected, actual, time_window):
+def pair_events(expected, actual, time_window, compare_function=None):
     '''
     Create mapping between two lists of events. An event is a tuple/list,
     where first item is timestamp, second item is the state/value.
@@ -538,7 +549,7 @@ def pair_events(expected, actual, time_window):
         while actual and actual[0][0] < e[0]:
             mapping.append((None, actual.pop(0)))
 
-        best = _find_best_match(actual, e[1], e[0] + time_window)
+        best = _find_best_match(actual, e[1], e[0] + time_window, compare_function)
         while best > 0:
             mapping.append((None, actual.pop(0)))
             best -= 1
