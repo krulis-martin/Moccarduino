@@ -764,7 +764,7 @@ public:
 	 * Attach the LED display to existing simulation (connect as event consumer to corresponding pins).
 	 */
 	void attachToSimulation(ArduinoSimulationController& simulation,
-		pin_t dataInputPin = data_pin, pin_t clockInputPin = clock_pin, pin_t latchPin = latch_pin)
+		pin_t dataInputPin = SEG7_DATA_PIN, pin_t clockInputPin = SEG7_CLOCK_PIN, pin_t latchPin = SEG7_LATCH_PIN)
 	{
 		mDataInputPin = dataInputPin;
 		mClockInputPin = clockInputPin;

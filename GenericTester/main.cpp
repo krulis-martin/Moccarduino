@@ -203,7 +203,7 @@ int main(int argc, char* argv[])
         bool lastLatchState = true;
         EventAnalyzer<ArduinoPinState> displayLatchAnalyzer([&](logtime_t time, ArduinoPinState state)
             {
-                if (state.pin == latch_pin) {
+                if (state.pin == SEG7_LATCH_PIN) {
                     bool pinValue = state.value == HIGH ? true : false;
                     if (!lastLatchState && pinValue) { // LOW -> HIGH edge
                         ++lastLoopLatchActivations;

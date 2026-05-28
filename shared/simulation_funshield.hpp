@@ -23,12 +23,12 @@ private:
 	/**
 	 * Shield buttons pin references.
 	 */
-	std::vector<pin_t> mButtionPins = { button1_pin, button2_pin, button3_pin };
+	std::vector<pin_t> mButtionPins = { BUTTON1_PIN, BUTTON2_PIN, BUTTON3_PIN };
 
 	/**
 	 * Shield independent LEDs pin references.
 	 */
-	std::vector<pin_t> mLedPins = { led1_pin, led2_pin, led3_pin, led4_pin };
+	std::vector<pin_t> mLedPins = { LED1_PIN, LED2_PIN, LED3_PIN, LED4_PIN };
 
 	/**
 	 * A collection of 4 LEDs (a simple display).
@@ -65,13 +65,13 @@ public:
 		}
 
 		// serial interface for the 7seg LEDs
-		mArduino.registerPin(latch_pin, OUTPUT);
-		mArduino.registerPin(clock_pin, OUTPUT);
-		mArduino.registerPin(data_pin, OUTPUT);
+		mArduino.registerPin(SEG7_LATCH_PIN, OUTPUT);
+		mArduino.registerPin(SEG7_CLOCK_PIN, OUTPUT);
+		mArduino.registerPin(SEG7_DATA_PIN, OUTPUT);
 
 		// attach displays (event consumers)
 		mLeds.attachToSimulation(mArduino, mLedPins);
-		mSegDisplay.attachToSimulation(mArduino, data_pin, clock_pin, latch_pin);
+		mSegDisplay.attachToSimulation(mArduino, SEG7_DATA_PIN, SEG7_CLOCK_PIN, SEG7_LATCH_PIN);
 	}
 
 	// accessor for underlying arduino simulator
