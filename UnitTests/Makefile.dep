@@ -1,0 +1,10 @@
+helpers.o: tests/helpers.cpp ../shared/helpers.hpp tests/../test.hpp
+led_display.o: tests/led_display.cpp ../shared/led_display.hpp \
+ ../shared/simulation.hpp ../shared/emulator.hpp \
+ ../shared/time_series.hpp ../shared/constants.hpp ../shared/helpers.hpp \
+ ../shared/funshield.h ../shared/time_series.hpp tests/../test.hpp
+simulation.o: tests/simulation.cpp ../shared/simulation.hpp \
+ ../shared/emulator.hpp ../shared/time_series.hpp ../shared/constants.hpp \
+ tests/../test.hpp
+time_series.o: tests/time_series.cpp ../shared/time_series.hpp \
+ tests/../test.hpp
