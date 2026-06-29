@@ -1,0 +1,7 @@
+test_funshield_buttons_leds_main.o: test_funshield_buttons_leds_main.cpp \
+ ../shared/simulation_funshield.hpp ../shared/simulation.hpp \
+ ../shared/emulator.hpp ../shared/time_series.hpp ../shared/constants.hpp \
+ ../shared/led_display.hpp ../shared/helpers.hpp ../shared/funshield.h \
+ ../shared/simulation.hpp ../shared/emulator.hpp
+tested_code_wrapper.o: tested_code_wrapper.cpp ../shared/interface.hpp \
+ ../shared/constants.hpp ../shared/funshield.h buttons_leds.ino
