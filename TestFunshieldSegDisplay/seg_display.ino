@@ -5,7 +5,7 @@
  * DO NOT COPY-PASTE THIS CODE !!!
  */
 
-#include <funshield.h>
+#include "funshield.h"
 
 #define TST_SERIAL(type) { type x = (type)42; Serial.print(x); Serial.println(x); }
 
